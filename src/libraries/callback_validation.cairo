@@ -6,7 +6,7 @@ mod CallbackValidation {
 
     // @notice Returns the address of a valid JediSwap V2 Pool
     // @param factory The contract address of the JediSwap V2 factory
-    // @param pool_key The identifying key of the V3 pool
+    // @param pool_key The identifying key of the JediSwap V2 pool
     // @return The V2 pool contract address
     fn verify_callback_pool_key(factory: ContractAddress, pool_key: PoolKey) -> ContractAddress {
         let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: factory};

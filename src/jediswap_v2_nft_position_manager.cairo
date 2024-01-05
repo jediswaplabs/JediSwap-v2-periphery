@@ -102,6 +102,18 @@ struct MintCallbackData {
 
 
 #[starknet::interface]
+trait IERC721Metadata<TContractState> {
+    fn name(self: @TContractState) -> felt252;
+    fn symbol(self: @TContractState) -> felt252;
+    fn token_uri(self: @TContractState, token_id: u256) -> Array<felt252>;
+}
+
+#[starknet::interface]
+trait IERC721CamelMetadata<TContractState> {
+    fn tokenURI(self: @TContractState, token_id: u256) -> Array<felt252>;
+}
+
+#[starknet::interface]
 trait IJediSwapV2NFTPositionManager<TContractState> {
     fn get_factory(self: @TContractState) -> ContractAddress;
     fn get_position(self: @TContractState, token_id: u256) -> (PositionDetail, PoolKey);
@@ -110,7 +122,7 @@ trait IJediSwapV2NFTPositionManager<TContractState> {
     fn decrease_liquidity(ref self: TContractState, params: DecreaseLiquidityParams) -> (u256, u256);
     fn collect(ref self: TContractState, params: CollectParams) -> (u128, u128);
     fn burn(ref self: TContractState, token_id: u256);
-    fn create_and_initialize_pool_if_necessary(ref self: TContractState, token0: ContractAddress, token1: ContractAddress, fee: u32, sqrt_price_X96: u256) -> ContractAddress;
+    fn create_and_initialize_pool(ref self: TContractState, token0: ContractAddress, token1: ContractAddress, fee: u32, sqrt_price_X96: u256) -> ContractAddress;
     fn jediswap_v2_mint_callback(ref self: TContractState, amount0_owed: u256, amount1_owed: u256, callback_data_span: Span<felt252>);
 }
 
@@ -120,6 +132,7 @@ mod JediSwapV2NFTPositionManager {
     use starknet::{ContractAddress, get_contract_address, contract_address_const, get_caller_address, get_block_timestamp, contract_address_to_felt252};
     use integer::{u256_from_felt252};
 
+    use openzeppelin::token::erc20::interface::{IERC20MetadataDispatcher, IERC20MetadataDispatcherTrait};
     use jediswap_v2_core::libraries::sqrt_price_math::SqrtPriceMath::Q128;
     use jediswap_v2_core::libraries::position::{PositionKey};
     use jediswap_v2_core::libraries::tick_math::TickMath::get_sqrt_ratio_at_tick;
@@ -132,6 +145,7 @@ mod JediSwapV2NFTPositionManager {
     
     use yas_core::numbers::signed_integer::{i32::i32, integer_trait::IntegerTrait};
     use yas_core::utils::math_utils::FullMath::mul_div;
+    use yas_core::utils::math_utils::{pow};
 
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc721::ERC721Component;
@@ -140,8 +154,12 @@ mod JediSwapV2NFTPositionManager {
 
     #[abi(embed_v0)]
     impl ERC721Impl = ERC721Component::ERC721Impl<ContractState>;
-    impl ERC721MetadataImpl = ERC721Component::ERC721MetadataImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl ERC721CamelOnlyImpl = ERC721Component::ERC721CamelOnlyImpl<ContractState>;
+    #[abi(embed_v0)]
     impl SRC5Impl = SRC5Component::SRC5Impl<ContractState>;
+    #[abi(embed_v0)]
+    impl SRC5CamelImpl = SRC5Component::SRC5CamelImpl<ContractState>;
 
     impl ERC721InternalImpl = ERC721Component::InternalImpl<ContractState>;
 
@@ -214,7 +232,7 @@ mod JediSwapV2NFTPositionManager {
 
     #[constructor]
     fn constructor(ref self: ContractState, factory: ContractAddress) {
-        self.erc721_storage.initializer('JediSwap Positions NFT', 'JEDI-V2-POS');
+        self.erc721_storage.initializer('JediSwap V2 Positions NFT', 'JEDI-V2-POS');
 
         self.factory.write(factory);
         self.next_id.write(1);
@@ -222,8 +240,34 @@ mod JediSwapV2NFTPositionManager {
     }
 
     #[external(v0)]
+    impl ERC721MetadataImpl of super::IERC721Metadata<ContractState> {
+        
+        fn name(self: @ContractState) -> felt252 {
+            self.erc721_storage.ERC721_name.read()
+        }
+
+        fn symbol(self: @ContractState) -> felt252 {
+            self.erc721_storage.ERC721_symbol.read()
+        }
+
+        fn token_uri(self: @ContractState, token_id: u256) -> Array<felt252> {
+            assert(self.erc721_storage._exists(token_id), 'ERC721: invalid token ID');
+            self._token_uri(token_id)
+        }
+    }
+
+    #[external(v0)]
+    impl ERC721CamelMetadataImpl of super::IERC721CamelMetadata<ContractState> {
+        
+        fn tokenURI(self: @ContractState, token_id: u256) -> Array<felt252> {
+            self.token_uri(token_id)
+        }
+    }
+
+    #[external(v0)]
     impl JediSwapV2NFTPositionManagerImpl of super::IJediSwapV2NFTPositionManager<ContractState> {
         
+        //TODO docs
         fn get_factory(self: @ContractState) -> ContractAddress {
             self.factory.read()
         }
@@ -437,6 +481,9 @@ mod JediSwapV2NFTPositionManager {
             (amount0, amount1)
         }
 
+        // @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens
+        // must be collected first.
+        // @param token_id The ID of the token that is being burned
         fn burn(ref self: ContractState, token_id: u256) {
             self._is_authorized_for_token(token_id);
             let mut position = self.positions.read(token_id);
@@ -462,7 +509,7 @@ mod JediSwapV2NFTPositionManager {
         // @param fee The fee amount of the v2 pool for the specified token pair
         // @param sqrt_price_X96 The initial square root price of the pool as a Q64.96 value
         // @return Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary
-        fn create_and_initialize_pool_if_necessary(ref self: ContractState, token0: ContractAddress, token1: ContractAddress, fee: u32, sqrt_price_X96: u256) -> ContractAddress {
+        fn create_and_initialize_pool(ref self: ContractState, token0: ContractAddress, token1: ContractAddress, fee: u32, sqrt_price_X96: u256) -> ContractAddress {
             assert(u256_from_felt252(contract_address_to_felt252(token0)) < u256_from_felt252(contract_address_to_felt252(token1)), 'Tokens not sorted');
             let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: self.factory.read()};
             let mut pool_address = factory_dispatcher.get_pool(token0, token1, fee);
@@ -541,10 +588,121 @@ mod JediSwapV2NFTPositionManager {
             let caller = get_caller_address();
             assert(self.erc721_storage._is_approved_or_owner(caller, token_id), 'Not approved');
         }
+
+        fn _token_uri(self: @ContractState, token_id: u256) -> Array<felt252> {
+
+            let mut content = array![];
+            let (position, pool_key) = self.get_position(token_id);
+
+            let token_0_dispatcher = IERC20MetadataDispatcher { contract_address: pool_key.token0 };
+            let token_1_dispatcher = IERC20MetadataDispatcher { contract_address: pool_key.token1 };
+
+            // Name & Description
+            content.append('data:application/json;utf8,');
+            content.append('{"name":"JediSwap V2 Position",');
+            content.append('"description":"This NFT ');
+            content.append('represents liquidity position ');
+            content.append('in a JediSwap V2 ');
+            content.append(token_0_dispatcher.symbol());
+            content.append('-');
+            content.append(token_1_dispatcher.symbol());
+            content.append(' ');
+            _num_to_string(ref content, pool_key.fee.into(), 4);
+            content.append('% ');
+            content.append(' pool. The owner of this NFT ');
+            content.append('can modify or redeem the ');
+            content.append('position."');
+            // // Image
+            content.append(',"image":"');
+            content.append('https://static.jediswap.');
+            content.append('xyz/V2NFT.png"}');
+            // content.append('position. Deposit Amounts: ');
+            // content.append('~0 ETH & ~0.000002 USDC"');
+
+            // // Image
+            // content.append(',"image":"');
+            // content.append('data:image/svg+xml;utf8,<svg%20');
+            // content.append('width=\\"100%\\"%20height=\\"100%\\');
+            // content.append('"%20viewBox=\\"0%200%2020000%202');
+            // content.append('0000\\"%20xmlns=\\"http://www.w3.');
+            // content.append('org/2000/svg\\"><style>svg{backg');
+            // content.append('round-image:url(');
+            // content.append('data:image/png;base64,');
+
+            // // Golden Token Base64 Encoded PNG
+            // content.append('iVBORw0KGgoAAAANSUhEUgAAAUAAAAF');
+            // content.append('ABAMAAAA/vriZAAAAD1BMVEUAAAD4+A');
+            // content.append('CJSQL/pAD///806TM9AAACgUlEQVR4A');
+            // content.append('WKgGAjiBUqoANDOHdzGDcRQAK3BLaSF');
+            // content.append('tJD+awriQwh8zDd2srlQfjxJGGr4xhf');
+            // content.append('Csuj3ywEC7gcCAgKeCD9bVC8gICAg4H');
+            // content.append('cDVtGvP/G5MKIXvKF8MhAQEBAQMFifo');
+            // content.append('rmK+Iho8uh8zwMCAgICAk65aouaEVM9');
+            // content.append('WL3zAQICAgJuBqYtth7brEZHC2CcMI6');
+            // content.append('Z1FQCAgICAm4GTnZsGL8WRaW4inPVV3');
+            // content.append('eAgICAgI8CVls0uIr+WnnR7wABAQEBF');
+            // content.append('wAvbBn3ytrvuhIQEBAQcCvwa8IbygCm');
+            // content.append('DRAQEBBwK7DbTt8A/OdWl7ZUAgICAgL');
+            // content.append('uAp5slXD1+i2BzQYICAgIuBsYtigyf8');
+            // content.append('2Z+GjRkhMYNQABAQEBdwFfsVXgRLd1Y');
+            // content.append('Dl/yAEBAQEB9wDrO7OoOQtRvdpeGKec');
+            // content.append('AAQEBATcCsxWd7qNwh1YItG15EYgICA');
+            // content.append('gIOAopyudHp6FuApgTRlgKbkTCAgICA');
+            // content.append('g4jhAl8NCz/u31W2+na4GAgICAgHFVh');
+            // content.append('+ZPtkmJvEiuNeYMa4CAgICAgPlxWSxP');
+            // content.append('nERhS0zE4XDR78rAyw4gICAgIGASYte');
+            // content.append('UN1soJyV+CGOL7QEBAQEBnwTs20yl+t');
+            // content.append('VZvFGLhTpUsxAICAgICJjKfORvvD06O');
+            // content.append('cAL2zogICAgIODJFg+fvknL25vR+7nd');
+            // content.append('CQQEBAQELMrYIeQ/XoxJvrItBAICAgI');
+            // content.append('CpvK0w2l8pUak3Nn2AwEBAQEB6z+sj/');
+            // content.append('1jin/yTlsFdT8QEBAQELAro1PF/lEpI');
+            // content.append('lJGHgthAwQEBATcD8wI5dxOzRr1C7PO');
+            // content.append('AgQEBAR8GjA7X1SqyjqxP0/cAJYDAQE');
+            // content.append('BAQGDGt46cJ/JyQIEBAQEfD7w0nsl2g');
+            // content.append('8EBAQEBPwNOZbOIEJQph0AAAAASUVOR');
+            // content.append('K5CYII=');
+
+            // content.append(');background-repeat:no-repeat;b');
+            // content.append('ackground-size:contain;backgrou');
+            // content.append('nd-position:center;image-render');
+            // content.append('ing:-webkit-optimize-contrast;-');
+            // content.append('ms-interpolation-mode:nearest-n');
+            // content.append('eighbor;image-rendering:-moz-cr');
+            // content.append('isp-edges;image-rendering:pixel');
+            // content.append('ated;}</style></svg>"}');
+
+            content
+        }
     }
 
     fn _check_deadline(deadline: u64) {
             let block_timestamp = get_block_timestamp();
             assert(deadline >= block_timestamp, 'Transaction too old');
+    }
+
+    fn _num_to_string(ref content: Array<felt252>, mut num_to_convert: u256, mut decimal: u256) {
+        let before_decimal = num_to_convert / pow(10, decimal);
+        let after_decimal = num_to_convert % pow(10, decimal);
+        if (before_decimal > 0) {
+            Serde::serialize(@before_decimal.low, ref content);
+            loop {
+                break true;
+            };
+        } else {
+            content.append('0.')
+        }
+        num_to_convert = after_decimal;
+        decimal -= 1;
+        loop {
+            if (decimal == 0 || num_to_convert == 0) {
+                break true;
+            }
+            let q = num_to_convert / pow(10, decimal);
+            let r = num_to_convert % pow(10, decimal);
+            Serde::serialize(@q.low, ref content);
+            num_to_convert = r;
+            decimal -= 1;
+        };
     }
 }
