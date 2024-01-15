@@ -120,36 +120,3 @@ fn test_get_amounts_for_liquidity_for_price_equal_to_upper_boundary() {
     assert(amount0 == 0, 'incorrect amount0');
     assert(amount1 == 199, 'incorrect amount1');
 }
-
-// #[test]
-// fn test_string() {
-//     let mut content = array![];
-//     let fee_u: u32 = 100000;
-//     let mut to_convert_to_string = fee_u.into();
-//     let mut decimal = 4;
-//     content.append('Hello ');
-//     let before_decimal = to_convert_to_string / pow(10, decimal);
-//     let after_decimal = to_convert_to_string % pow(10, decimal);
-//     if (before_decimal > 0) {
-//         Serde::serialize(@before_decimal.low, ref content);
-//         loop {
-//             break true;
-//         };
-//     } else {
-//         content.append('0.')
-//     }
-//     to_convert_to_string = after_decimal;
-//     decimal -= 1;
-//     loop {
-//         if (decimal == 0 || to_convert_to_string == 0) {
-//             break true;
-//         }
-//         let q = to_convert_to_string / pow(10, decimal);
-//         let r = to_convert_to_string % pow(10, decimal);
-//         Serde::serialize(@q.low, ref content);
-//         to_convert_to_string = r;
-//         decimal -= 1;
-//     };
-//     content.print();
-//     assert(false, 'false');
-// }

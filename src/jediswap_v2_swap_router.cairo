@@ -113,9 +113,7 @@ mod JediSwapV2SwapRouter {
             let mut path_data: Array<felt252> = ArrayTrait::new();
             let path_data_struct = PathData{token_in: params.token_in, token_out: params.token_out, fee: params.fee};
             Serde::<PathData>::serialize(@path_data_struct, ref path_data);
-            // let mut swap_callback_data: Array<felt252> = ArrayTrait::new();
             let swap_callback_data_struct = SwapCallbackData {path: path_data.span(), payer: get_caller_address()};
-            // Serde::<SwapCallbackData>::serialize(@swap_callback_data_struct, ref swap_callback_data);
             let amount_out = self._exact_input_internal(params.amount_in, params.recipient, params.sqrt_price_limit_X96, swap_callback_data_struct);
             assert(amount_out >= params.amount_out_minimum, 'Too little received');
             amount_out
@@ -181,7 +179,7 @@ mod JediSwapV2SwapRouter {
 
         // @notice Swaps as little as possible of one token for `amount_out` of another along the specified path (reversed)
         // @param params The parameters necessary for the multi-hop swap, encoded as `ExactOutputParams` in calldata
-        // @return amountIn The amount of the input token
+        // @return The amount of the input token
         fn exact_output(ref self: ContractState, params: ExactOutputParams) -> u256 {
             _check_deadline(params.deadline);
             let path_data_span = params.path.span();

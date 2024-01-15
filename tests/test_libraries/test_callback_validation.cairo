@@ -2,7 +2,7 @@ use starknet::{ ContractAddress };
 use snforge_std::{ ContractClassTrait, declare, start_prank, stop_prank };
 use jediswap_v2_periphery::jediswap_v2_nft_position_manager::{IJediSwapV2NFTPositionManagerDispatcher, IJediSwapV2NFTPositionManagerDispatcherTrait};
 use jediswap_v2_periphery::libraries::callback_validation::CallbackValidation::{verify_callback};
-use tests::utils::{owner};
+use super::super::utils::{owner};
 
 #[test]
 #[should_panic(expected: ('Invalid callback',))]

@@ -340,8 +340,8 @@ mod JediSwapV2NFTPositionManager {
         // @notice Increases the amount of liquidity in a position, with tokens paid by the caller
         // @param params The params necessary to increase liquidity of a position, encoded as `IncreaseLiquidityParams` in calldata
         // @return The new liquidity amount as a result of the increase
-        // @return The amount of token0 to acheive resulting liquidity
-        // @return The amount of token1 to acheive resulting liquidity
+        // @return The amount of token0 to achieve resulting liquidity
+        // @return The amount of token1 to achieve resulting liquidity
         fn increase_liquidity(ref self: ContractState, params: IncreaseLiquidityParams) -> (u128, u256, u256) {
             _check_deadline(params.deadline);
             
@@ -503,7 +503,7 @@ mod JediSwapV2NFTPositionManager {
         }
 
         // @notice Creates a new pool if it does not exist, then initializes if not initialized
-        // @dev This method can be bundled with others via IMulticall for the first action (e.g. mint) performed against a pool
+        // @dev This method can be bundled with others via multicall for the first action (e.g. mint) performed against a pool
         // @param token0 The contract address of token0 of the pool
         // @param token1 The contract address of token1 of the pool
         // @param fee The fee amount of the v2 pool for the specified token pair
@@ -565,6 +565,8 @@ mod JediSwapV2NFTPositionManager {
 
             let factory_dispatcher = IJediSwapV2FactoryDispatcher { contract_address: self.factory.read() };
             let pool_address = factory_dispatcher.get_pool(params.token0, params.token1, params.fee);
+
+            assert(pool_address.into() != 0, 'pool not created');
 
             let pool_dispatcher = IJediSwapV2PoolDispatcher { contract_address: pool_address };
 
