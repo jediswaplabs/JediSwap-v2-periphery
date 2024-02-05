@@ -165,19 +165,21 @@ mod JediSwapV2SwapRouter {
         fn exact_output_single(ref self: ContractState, params: ExactOutputSingleParams) -> u256 {
             _check_deadline(params.deadline);
             let mut path_data: Array<felt252> = ArrayTrait::new();
-            let path_data_struct = PathData{token_in: params.token_in, token_out: params.token_out, fee: params.fee};
+            let path_data_struct = PathData{token_in: params.token_out, token_out: params.token_in, fee: params.fee};
             Serde::<PathData>::serialize(@path_data_struct, ref path_data);
             // let mut swap_callback_data: Array<felt252> = ArrayTrait::new();
             let swap_callback_data_struct = SwapCallbackData {path: path_data.span(), payer: get_caller_address()};
             // Serde::<SwapCallbackData>::serialize(@swap_callback_data_struct, ref swap_callback_data);
             let amount_in = self._exact_output_internal(params.amount_out, params.recipient, params.sqrt_price_limit_X96, swap_callback_data_struct);
-            assert(amount_in >= params.amount_in_maximum, 'Too much requested');
+            assert(amount_in <= params.amount_in_maximum, 'Too much requested');
             // has to be reset even though we don't use it in the single hop case
             self.amount_in_cached.write(BoundedInt::max());
             amount_in
         }
 
         // @notice Swaps as little as possible of one token for `amount_out` of another along the specified path (reversed)
+        // @dev path array will be in format [token_out, token_in, fee] if used for single hop (recommend using exact_output_single)
+        // @dev for multihop going from token_in to token_out via token_mid, path will be [token_out, token_mid, fee_out_mid, token_mid, token_in, fee_mid_in]
         // @param params The parameters necessary for the multi-hop swap, encoded as `ExactOutputParams` in calldata
         // @return The amount of the input token
         fn exact_output(ref self: ContractState, params: ExactOutputParams) -> u256 {
@@ -190,7 +192,7 @@ mod JediSwapV2SwapRouter {
             self._exact_output_internal(params.amount_out, params.recipient, 0, swap_callback_data_struct);
 
             let amount_in = self.amount_in_cached.read();
-            assert(amount_in >= params.amount_in_maximum, 'Too much requested');
+            assert(amount_in <= params.amount_in_maximum, 'Too much requested');
             self.amount_in_cached.write(BoundedInt::max());
             amount_in
         }
@@ -282,10 +284,14 @@ mod JediSwapV2SwapRouter {
 
             let path = Serde::<PathData>::deserialize(ref path_span).unwrap();
 
-            let zero_for_one = u256_from_felt252(contract_address_to_felt252(path.token_in)) < u256_from_felt252(contract_address_to_felt252(path.token_out));
+            let token_out = path.token_in;
+            let token_in = path.token_out;
+            let fee = path.fee;
+
+            let zero_for_one = u256_from_felt252(contract_address_to_felt252(token_in)) < u256_from_felt252(contract_address_to_felt252(token_out));
 
             let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: self.factory.read()};
-            let mut pool_address = factory_dispatcher.get_pool(path.token_in, path.token_out, path.fee);
+            let mut pool_address = factory_dispatcher.get_pool(token_in, token_out, fee);
             let pool_dispatcher = IJediSwapV2PoolDispatcher {contract_address: pool_address};
             let mut swap_callback_data: Array<felt252> = ArrayTrait::new();
             Serde::<SwapCallbackData>::serialize(@swap_callback_data_struct, ref swap_callback_data);
