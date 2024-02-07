@@ -67,22 +67,39 @@ trait IJediSwapV2SwapRouter<TContractState> {
     fn exact_input(ref self: TContractState, params: ExactInputParams) -> u256;
     fn exact_output_single(ref self: TContractState, params: ExactOutputSingleParams) -> u256;
     fn exact_output(ref self: TContractState, params: ExactOutputParams) -> u256;
-    fn jediswap_v2_swap_callback(ref self: TContractState, amount0_delta: i256, amount1_delta: i256, callback_data_span: Span<felt252>);
+    fn jediswap_v2_swap_callback(
+        ref self: TContractState,
+        amount0_delta: i256,
+        amount1_delta: i256,
+        callback_data_span: Span<felt252>
+    );
 }
 
 #[starknet::contract]
 mod JediSwapV2SwapRouter {
-    use super::{ExactInputSingleParams, ExactInputParams, ExactOutputSingleParams, ExactOutputParams, PathData, SwapCallbackData};
-    use starknet::{ContractAddress, get_contract_address, get_caller_address, get_block_timestamp, contract_address_to_felt252};
+    use super::{
+        ExactInputSingleParams, ExactInputParams, ExactOutputSingleParams, ExactOutputParams,
+        PathData, SwapCallbackData
+    };
+    use starknet::{
+        ContractAddress, get_contract_address, get_caller_address, get_block_timestamp,
+        contract_address_to_felt252
+    };
     use integer::{u256_from_felt252, BoundedInt};
 
-    use jediswap_v2_core::libraries::tick_math::TickMath::{get_sqrt_ratio_at_tick, MIN_TICK, MAX_TICK};
+    use jediswap_v2_core::libraries::tick_math::TickMath::{
+        get_sqrt_ratio_at_tick, MIN_TICK, MAX_TICK
+    };
     use jediswap_v2_periphery::libraries::callback_validation::CallbackValidation::verify_callback;
     use jediswap_v2_periphery::libraries::periphery_payments::PeripheryPayments::pay;
 
-    use jediswap_v2_core::jediswap_v2_pool::{IJediSwapV2PoolDispatcher, IJediSwapV2PoolDispatcherTrait};
-    use jediswap_v2_core::jediswap_v2_factory::{IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait};
-    
+    use jediswap_v2_core::jediswap_v2_pool::{
+        IJediSwapV2PoolDispatcher, IJediSwapV2PoolDispatcherTrait
+    };
+    use jediswap_v2_core::jediswap_v2_factory::{
+        IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait
+    };
+
     use yas_core::numbers::signed_integer::{i256::i256, integer_trait::IntegerTrait};
     use yas_core::utils::math_utils::FullMath::mul_div;
 
@@ -100,7 +117,6 @@ mod JediSwapV2SwapRouter {
 
     #[external(v0)]
     impl JediSwapV2SwapRouterImpl of super::IJediSwapV2SwapRouter<ContractState> {
-        
         fn get_factory(self: @ContractState) -> ContractAddress {
             self.factory.read()
         }
@@ -111,10 +127,20 @@ mod JediSwapV2SwapRouter {
         fn exact_input_single(ref self: ContractState, params: ExactInputSingleParams) -> u256 {
             _check_deadline(params.deadline);
             let mut path_data: Array<felt252> = ArrayTrait::new();
-            let path_data_struct = PathData{token_in: params.token_in, token_out: params.token_out, fee: params.fee};
+            let path_data_struct = PathData {
+                token_in: params.token_in, token_out: params.token_out, fee: params.fee
+            };
             Serde::<PathData>::serialize(@path_data_struct, ref path_data);
-            let swap_callback_data_struct = SwapCallbackData {path: path_data.span(), payer: get_caller_address()};
-            let amount_out = self._exact_input_internal(params.amount_in, params.recipient, params.sqrt_price_limit_X96, swap_callback_data_struct);
+            let swap_callback_data_struct = SwapCallbackData {
+                path: path_data.span(), payer: get_caller_address()
+            };
+            let amount_out = self
+                ._exact_input_internal(
+                    params.amount_in,
+                    params.recipient,
+                    params.sqrt_price_limit_X96,
+                    swap_callback_data_struct
+                );
             assert(amount_out >= params.amount_out_minimum, 'Too little received');
             amount_out
         }
@@ -132,19 +158,23 @@ mod JediSwapV2SwapRouter {
                 let path_data_len = path_data_span.len();
 
                 let has_multiple_pools = path_data_len > 3;
-                let swap_callback_data_struct = SwapCallbackData {path: path_data_span.slice(0, 3), payer: payer};  // only the first pool in the path is necessary
+                let swap_callback_data_struct = SwapCallbackData {
+                    path: path_data_span.slice(0, 3), payer: payer
+                }; // only the first pool in the path is necessary
 
                 // the outputs of prior swaps become the inputs to subsequent ones
-                amount_in = self._exact_input_internal(
-                    amount_in, 
-                    if (has_multiple_pools) {   // for intermediate swaps, this contract custodies
-                        get_contract_address() 
-                        } else { 
-                            params.recipient 
-                            },
-                    0, 
-                    swap_callback_data_struct);
-                
+                amount_in = self
+                    ._exact_input_internal(
+                        amount_in,
+                        if (has_multiple_pools) { // for intermediate swaps, this contract custodies
+                            get_contract_address()
+                        } else {
+                            params.recipient
+                        },
+                        0,
+                        swap_callback_data_struct
+                    );
+
                 // decide whether to continue or terminate
                 if (has_multiple_pools) {
                     payer = get_contract_address(); // at this point, the caller has paid
@@ -165,12 +195,22 @@ mod JediSwapV2SwapRouter {
         fn exact_output_single(ref self: ContractState, params: ExactOutputSingleParams) -> u256 {
             _check_deadline(params.deadline);
             let mut path_data: Array<felt252> = ArrayTrait::new();
-            let path_data_struct = PathData{token_in: params.token_out, token_out: params.token_in, fee: params.fee};
+            let path_data_struct = PathData {
+                token_in: params.token_out, token_out: params.token_in, fee: params.fee
+            };
             Serde::<PathData>::serialize(@path_data_struct, ref path_data);
             // let mut swap_callback_data: Array<felt252> = ArrayTrait::new();
-            let swap_callback_data_struct = SwapCallbackData {path: path_data.span(), payer: get_caller_address()};
+            let swap_callback_data_struct = SwapCallbackData {
+                path: path_data.span(), payer: get_caller_address()
+            };
             // Serde::<SwapCallbackData>::serialize(@swap_callback_data_struct, ref swap_callback_data);
-            let amount_in = self._exact_output_internal(params.amount_out, params.recipient, params.sqrt_price_limit_X96, swap_callback_data_struct);
+            let amount_in = self
+                ._exact_output_internal(
+                    params.amount_out,
+                    params.recipient,
+                    params.sqrt_price_limit_X96,
+                    swap_callback_data_struct
+                );
             assert(amount_in <= params.amount_in_maximum, 'Too much requested');
             // has to be reset even though we don't use it in the single hop case
             self.amount_in_cached.write(BoundedInt::max());
@@ -188,20 +228,35 @@ mod JediSwapV2SwapRouter {
 
             // it's okay that the payer is fixed to caller here, as they're only paying for the "final" exact output
             // swap, which happens first, and subsequent swaps are paid for within nested callback frames
-            let swap_callback_data_struct = SwapCallbackData {path: path_data_span, payer: get_caller_address()};
-            self._exact_output_internal(params.amount_out, params.recipient, 0, swap_callback_data_struct);
+            let swap_callback_data_struct = SwapCallbackData {
+                path: path_data_span, payer: get_caller_address()
+            };
+            self
+                ._exact_output_internal(
+                    params.amount_out, params.recipient, 0, swap_callback_data_struct
+                );
 
             let amount_in = self.amount_in_cached.read();
             assert(amount_in <= params.amount_in_maximum, 'Too much requested');
             self.amount_in_cached.write(BoundedInt::max());
             amount_in
         }
-        
-        fn jediswap_v2_swap_callback(ref self: ContractState, amount0_delta: i256, amount1_delta: i256, mut callback_data_span: Span<felt252>) {
-            assert(amount0_delta > IntegerTrait::<i256>::new(0, false) || amount1_delta > IntegerTrait::<i256>::new(0, false), 'not supported');
+
+        fn jediswap_v2_swap_callback(
+            ref self: ContractState,
+            amount0_delta: i256,
+            amount1_delta: i256,
+            mut callback_data_span: Span<felt252>
+        ) {
+            assert(
+                amount0_delta > IntegerTrait::<i256>::new(0, false)
+                    || amount1_delta > IntegerTrait::<i256>::new(0, false),
+                'not supported'
+            );
             let caller = get_caller_address();
-            
-            let decoded_data = Serde::<SwapCallbackData>::deserialize(ref callback_data_span).unwrap();
+
+            let decoded_data = Serde::<SwapCallbackData>::deserialize(ref callback_data_span)
+                .unwrap();
 
             let mut path_span = decoded_data.path.slice(0, 3);
             let path = Serde::<PathData>::deserialize(ref path_span).unwrap();
@@ -209,10 +264,22 @@ mod JediSwapV2SwapRouter {
 
             verify_callback(self.factory.read(), token_in, token_out, fee);
 
-            let (is_exact_input, amount_to_pay) = if (amount0_delta > IntegerTrait::<i256>::new(0, false)) {
-                (u256_from_felt252(contract_address_to_felt252(token_in)) < u256_from_felt252(contract_address_to_felt252(token_out)), amount0_delta.mag)
+            let (is_exact_input, amount_to_pay) = if (amount0_delta > IntegerTrait::<
+                i256
+            >::new(0, false)) {
+                (
+                    u256_from_felt252(
+                        contract_address_to_felt252(token_in)
+                    ) < u256_from_felt252(contract_address_to_felt252(token_out)),
+                    amount0_delta.mag
+                )
             } else {
-                (u256_from_felt252(contract_address_to_felt252(token_out)) < u256_from_felt252(contract_address_to_felt252(token_in)), amount1_delta.mag)
+                (
+                    u256_from_felt252(
+                        contract_address_to_felt252(token_out)
+                    ) < u256_from_felt252(contract_address_to_felt252(token_in)),
+                    amount1_delta.mag
+                )
             };
 
             if (is_exact_input) {
@@ -220,11 +287,19 @@ mod JediSwapV2SwapRouter {
             } else {
                 // either initiate the next swap or pay
                 if (decoded_data.path.len() > 3) {
-                    let swap_callback_data_struct = SwapCallbackData {path: decoded_data.path.slice(3, decoded_data.path.len() - 3), payer: decoded_data.payer};
-                    self._exact_output_internal(amount_to_pay, caller, 0, swap_callback_data_struct);
+                    let swap_callback_data_struct = SwapCallbackData {
+                        path: decoded_data.path.slice(3, decoded_data.path.len() - 3),
+                        payer: decoded_data.payer
+                    };
+                    self
+                        ._exact_output_internal(
+                            amount_to_pay, caller, 0, swap_callback_data_struct
+                        );
                 } else {
                     self.amount_in_cached.write(amount_to_pay);
-                    pay(token_out, decoded_data.payer, caller, amount_to_pay);  // swap in/out because exact output swaps are reversed
+                    pay(
+                        token_out, decoded_data.payer, caller, amount_to_pay
+                    ); // swap in/out because exact output swaps are reversed
                 }
             }
         }
@@ -232,40 +307,53 @@ mod JediSwapV2SwapRouter {
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-
         // @dev Performs a single exact input swap
-        fn _exact_input_internal(ref self: ContractState, amount_in: u256, mut recipient: ContractAddress, sqrt_price_limit_X96: u256, swap_callback_data_struct: SwapCallbackData) -> u256 {
+        fn _exact_input_internal(
+            ref self: ContractState,
+            amount_in: u256,
+            mut recipient: ContractAddress,
+            sqrt_price_limit_X96: u256,
+            swap_callback_data_struct: SwapCallbackData
+        ) -> u256 {
             // allow swapping to the router address with address 0
             if (recipient.is_zero()) {
                 recipient = get_contract_address();
             }
-            
+
             let mut path_span = swap_callback_data_struct.path;
 
             let path = Serde::<PathData>::deserialize(ref path_span).unwrap();
 
-            let zero_for_one = u256_from_felt252(contract_address_to_felt252(path.token_in)) < u256_from_felt252(contract_address_to_felt252(path.token_out));
+            let zero_for_one = u256_from_felt252(
+                contract_address_to_felt252(path.token_in)
+            ) < u256_from_felt252(contract_address_to_felt252(path.token_out));
 
-            let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: self.factory.read()};
-            let mut pool_address = factory_dispatcher.get_pool(path.token_in, path.token_out, path.fee);
-            let pool_dispatcher = IJediSwapV2PoolDispatcher {contract_address: pool_address};
+            let factory_dispatcher = IJediSwapV2FactoryDispatcher {
+                contract_address: self.factory.read()
+            };
+            let mut pool_address = factory_dispatcher
+                .get_pool(path.token_in, path.token_out, path.fee);
+            let pool_dispatcher = IJediSwapV2PoolDispatcher { contract_address: pool_address };
             let mut swap_callback_data: Array<felt252> = ArrayTrait::new();
-            Serde::<SwapCallbackData>::serialize(@swap_callback_data_struct, ref swap_callback_data);
-            let (amount0, amount1) = pool_dispatcher.swap(
-                recipient, 
-                zero_for_one, 
-                amount_in.into(), 
-                if (sqrt_price_limit_X96 == 0) {
-                    if (zero_for_one) {
-                        get_sqrt_ratio_at_tick(MIN_TICK()) + 1
+            Serde::<
+                SwapCallbackData
+            >::serialize(@swap_callback_data_struct, ref swap_callback_data);
+            let (amount0, amount1) = pool_dispatcher
+                .swap(
+                    recipient,
+                    zero_for_one,
+                    amount_in.into(),
+                    if (sqrt_price_limit_X96 == 0) {
+                        if (zero_for_one) {
+                            get_sqrt_ratio_at_tick(MIN_TICK()) + 1
+                        } else {
+                            get_sqrt_ratio_at_tick(MAX_TICK()) - 1
+                        }
                     } else {
-                        get_sqrt_ratio_at_tick(MAX_TICK()) - 1
-                    }
-                } else {
-                    sqrt_price_limit_X96
-                },
-                swap_callback_data
-            );
+                        sqrt_price_limit_X96
+                    },
+                    swap_callback_data
+                );
             if (zero_for_one) {
                 return amount1.mag;
             } else {
@@ -274,12 +362,18 @@ mod JediSwapV2SwapRouter {
         }
 
         // @dev Performs a single exact output swap
-        fn _exact_output_internal(ref self: ContractState, amount_out: u256, mut recipient: ContractAddress, sqrt_price_limit_X96: u256, swap_callback_data_struct: SwapCallbackData) -> u256 {
+        fn _exact_output_internal(
+            ref self: ContractState,
+            amount_out: u256,
+            mut recipient: ContractAddress,
+            sqrt_price_limit_X96: u256,
+            swap_callback_data_struct: SwapCallbackData
+        ) -> u256 {
             // allow swapping to the router address with address 0
             if (recipient.is_zero()) {
                 recipient = get_contract_address();
             }
-            
+
             let mut path_span = swap_callback_data_struct.path.slice(0, 3);
 
             let path = Serde::<PathData>::deserialize(ref path_span).unwrap();
@@ -288,33 +382,40 @@ mod JediSwapV2SwapRouter {
             let token_in = path.token_out;
             let fee = path.fee;
 
-            let zero_for_one = u256_from_felt252(contract_address_to_felt252(token_in)) < u256_from_felt252(contract_address_to_felt252(token_out));
+            let zero_for_one = u256_from_felt252(
+                contract_address_to_felt252(token_in)
+            ) < u256_from_felt252(contract_address_to_felt252(token_out));
 
-            let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: self.factory.read()};
+            let factory_dispatcher = IJediSwapV2FactoryDispatcher {
+                contract_address: self.factory.read()
+            };
             let mut pool_address = factory_dispatcher.get_pool(token_in, token_out, fee);
-            let pool_dispatcher = IJediSwapV2PoolDispatcher {contract_address: pool_address};
+            let pool_dispatcher = IJediSwapV2PoolDispatcher { contract_address: pool_address };
             let mut swap_callback_data: Array<felt252> = ArrayTrait::new();
-            Serde::<SwapCallbackData>::serialize(@swap_callback_data_struct, ref swap_callback_data);
-            let (amount0_delta, amount1_delta) = pool_dispatcher.swap(
-                recipient, 
-                zero_for_one, 
-                -amount_out.into(), 
-                if (sqrt_price_limit_X96 == 0) {
-                    if (zero_for_one) {
-                        get_sqrt_ratio_at_tick(MIN_TICK()) + 1
+            Serde::<
+                SwapCallbackData
+            >::serialize(@swap_callback_data_struct, ref swap_callback_data);
+            let (amount0_delta, amount1_delta) = pool_dispatcher
+                .swap(
+                    recipient,
+                    zero_for_one,
+                    -amount_out.into(),
+                    if (sqrt_price_limit_X96 == 0) {
+                        if (zero_for_one) {
+                            get_sqrt_ratio_at_tick(MIN_TICK()) + 1
+                        } else {
+                            get_sqrt_ratio_at_tick(MAX_TICK()) - 1
+                        }
                     } else {
-                        get_sqrt_ratio_at_tick(MAX_TICK()) - 1
-                    }
-                } else {
-                    sqrt_price_limit_X96
-                },
-                swap_callback_data
-            );
-            let (amount_in, amount_out_received) = if (zero_for_one) { 
+                        sqrt_price_limit_X96
+                    },
+                    swap_callback_data
+                );
+            let (amount_in, amount_out_received) = if (zero_for_one) {
                 (amount0_delta.mag, amount1_delta.mag)
-                } else {
-                    (amount1_delta.mag, amount0_delta.mag)
-                    };
+            } else {
+                (amount1_delta.mag, amount0_delta.mag)
+            };
             // it's technically possible to not receive the full output amount,
             // so if no price limit has been specified, require this possibility away
             if (sqrt_price_limit_X96 == 0) {
@@ -326,7 +427,7 @@ mod JediSwapV2SwapRouter {
     }
 
     fn _check_deadline(deadline: u64) {
-            let block_timestamp = get_block_timestamp();
-            assert(deadline >= block_timestamp, 'Transaction too old');
+        let block_timestamp = get_block_timestamp();
+        assert(deadline >= block_timestamp, 'Transaction too old');
     }
 }

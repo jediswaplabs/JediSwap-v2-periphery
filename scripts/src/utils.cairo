@@ -1,5 +1,5 @@
 use option::OptionTrait;
-use starknet:: { ContractAddress, ClassHash, contract_address_try_from_felt252};
+use starknet::{ContractAddress, ClassHash, contract_address_try_from_felt252};
 
 fn user1() -> ContractAddress {
     contract_address_try_from_felt252('user1').unwrap()

@@ -1,13 +1,28 @@
-use starknet:: { ContractAddress, contract_address_try_from_felt252 };
+use starknet::{ContractAddress, contract_address_try_from_felt252};
 use integer::BoundedInt;
 use yas_core::numbers::signed_integer::{i32::i32, i128::i128, integer_trait::IntegerTrait};
 use yas_core::utils::math_utils::{pow};
-use openzeppelin::token::erc20::{ ERC20Component, interface::{IERC20Dispatcher, IERC20DispatcherTrait}};
-use jediswap_v2_core::libraries::tick_math::TickMath::{MIN_TICK, MAX_TICK, MAX_SQRT_RATIO, MIN_SQRT_RATIO, get_sqrt_ratio_at_tick, get_tick_at_sqrt_ratio};
-use jediswap_v2_core::jediswap_v2_factory::{IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait, JediSwapV2Factory};
-use jediswap_v2_core::jediswap_v2_pool::{IJediSwapV2PoolDispatcher, IJediSwapV2PoolDispatcherTrait, JediSwapV2Pool};
-use jediswap_v2_periphery::jediswap_v2_nft_position_manager::{IJediSwapV2NFTPositionManagerDispatcher, IJediSwapV2NFTPositionManagerDispatcherTrait, MintParams, PositionDetail, PoolKey};
-use snforge_std::{ PrintTrait, declare, ContractClassTrait, start_prank, stop_prank, CheatTarget, spy_events, SpyOn, EventSpy, EventFetcher, Event, EventAssertions };
+use openzeppelin::token::erc20::{
+    ERC20Component, interface::{IERC20Dispatcher, IERC20DispatcherTrait}
+};
+use jediswap_v2_core::libraries::tick_math::TickMath::{
+    MIN_TICK, MAX_TICK, MAX_SQRT_RATIO, MIN_SQRT_RATIO, get_sqrt_ratio_at_tick,
+    get_tick_at_sqrt_ratio
+};
+use jediswap_v2_core::jediswap_v2_factory::{
+    IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait, JediSwapV2Factory
+};
+use jediswap_v2_core::jediswap_v2_pool::{
+    IJediSwapV2PoolDispatcher, IJediSwapV2PoolDispatcherTrait, JediSwapV2Pool
+};
+use jediswap_v2_periphery::jediswap_v2_nft_position_manager::{
+    IJediSwapV2NFTPositionManagerDispatcher, IJediSwapV2NFTPositionManagerDispatcherTrait,
+    MintParams, PositionDetail, PoolKey
+};
+use snforge_std::{
+    PrintTrait, declare, ContractClassTrait, start_prank, stop_prank, CheatTarget, spy_events,
+    SpyOn, EventSpy, EventFetcher, Event, EventAssertions
+};
 
 use super::utils::{owner, user1, user2, token0_1};
 
@@ -16,7 +31,7 @@ use super::utils::{owner, user1, user2, token0_1};
 fn setup_factory() -> (ContractAddress, ContractAddress) {
     let owner = owner();
     let pool_class = declare('JediSwapV2Pool');
-    
+
     let factory_class = declare('JediSwapV2Factory');
     let mut factory_constructor_calldata = Default::default();
     Serde::serialize(@owner, ref factory_constructor_calldata);
@@ -25,8 +40,9 @@ fn setup_factory() -> (ContractAddress, ContractAddress) {
     (owner, factory_address)
 }
 
-fn setup_nft_position_manager(factory_address: ContractAddress) -> IJediSwapV2NFTPositionManagerDispatcher {
-
+fn setup_nft_position_manager(
+    factory_address: ContractAddress
+) -> IJediSwapV2NFTPositionManagerDispatcher {
     let nft_class = declare('JediSwapV2NFTPositionManager');
 
     let mut nft_constructor_calldata = ArrayTrait::<felt252>::new();
@@ -49,7 +65,6 @@ fn get_max_tick() -> i32 {
 
 #[test]
 fn test_create_and_initialize_pool_if_necessary_creates_pool_if_not_created() {
-
     let (owner, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
@@ -58,7 +73,7 @@ fn test_create_and_initialize_pool_if_necessary_creates_pool_if_not_created() {
 
     let (token0, token1) = token0_1();
     let fee = 3000;
-    let sqrt_price_X96 = 79228162514264337593543950336;  //  encode_price_sqrt(1, 1)
+    let sqrt_price_X96 = 79228162514264337593543950336; //  encode_price_sqrt(1, 1)
 
     nft_dispatcher.create_and_initialize_pool(token0, token1, fee, sqrt_price_X96);
 
@@ -66,17 +81,27 @@ fn test_create_and_initialize_pool_if_necessary_creates_pool_if_not_created() {
 
     let pool_address = factory_dispatcher.get_pool(token0, token1, fee);
 
-    spy.assert_emitted(@array![
-        (
-            factory_address, 
-            JediSwapV2Factory::Event::PoolCreated(JediSwapV2Factory::PoolCreated{ token0: token0, token1: token1, fee: fee, tick_spacing: 60, pool: pool_address })
-        )
-    ]);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    factory_address,
+                    JediSwapV2Factory::Event::PoolCreated(
+                        JediSwapV2Factory::PoolCreated {
+                            token0: token0,
+                            token1: token1,
+                            fee: fee,
+                            tick_spacing: 60,
+                            pool: pool_address
+                        }
+                    )
+                )
+            ]
+        );
 }
 
 #[test]
 fn test_create_and_initialize_pool_works_if_pool_is_created_but_not_initialized() {
-
     let (owner, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
@@ -85,8 +110,8 @@ fn test_create_and_initialize_pool_works_if_pool_is_created_but_not_initialized(
 
     let (token0, token1) = token0_1();
     let fee = 3000;
-    let sqrt_price_X96 = 79228162514264337593543950336;  //  encode_price_sqrt(1, 1)
-    
+    let sqrt_price_X96 = 79228162514264337593543950336; //  encode_price_sqrt(1, 1)
+
     factory_dispatcher.create_pool(token0, token1, fee);
 
     let pool_address = factory_dispatcher.get_pool(token0, token1, fee);
@@ -102,7 +127,6 @@ fn test_create_and_initialize_pool_works_if_pool_is_created_but_not_initialized(
 
 #[test]
 fn test_create_and_initialize_pool_works_if_pool_is_created_and_initialized() {
-
     let (owner, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
@@ -111,8 +135,8 @@ fn test_create_and_initialize_pool_works_if_pool_is_created_and_initialized() {
 
     let (token0, token1) = token0_1();
     let fee = 3000;
-    let sqrt_price_X96 = 79228162514264337593543950336;  //  encode_price_sqrt(1, 1)
-    
+    let sqrt_price_X96 = 79228162514264337593543950336; //  encode_price_sqrt(1, 1)
+
     factory_dispatcher.create_pool(token0, token1, fee);
 
     let pool_address = factory_dispatcher.get_pool(token0, token1, fee);
@@ -131,13 +155,12 @@ fn test_create_and_initialize_pool_works_if_pool_is_created_and_initialized() {
 #[test]
 #[should_panic(expected: ('pool not created',))]
 fn test_mint_fails_if_pool_does_not_exist() {
-
     let (owner, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
     let (token0, token1) = token0_1();
-    
+
     let mint_params = MintParams {
         token0: token0,
         token1: token1,
@@ -150,7 +173,7 @@ fn test_mint_fails_if_pool_does_not_exist() {
         amount1_min: 0,
         recipient: user1(),
         deadline: 1
-        };
+    };
 
     nft_dispatcher.mint(mint_params);
 }
@@ -158,17 +181,16 @@ fn test_mint_fails_if_pool_does_not_exist() {
 #[test]
 #[should_panic(expected: ('u256_sub Overflow',))]
 fn test_mint_fails_if_can_not_transfer() {
-
     let (owner, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
     let (token0, token1) = token0_1();
     let fee = 3000;
-    let sqrt_price_X96 = 79228162514264337593543950336;  //  encode_price_sqrt(1, 1)
-    
+    let sqrt_price_X96 = 79228162514264337593543950336; //  encode_price_sqrt(1, 1)
+
     nft_dispatcher.create_and_initialize_pool(token0, token1, fee, sqrt_price_X96);
-    
+
     let mint_params = MintParams {
         token0: token0,
         token1: token1,
@@ -181,22 +203,21 @@ fn test_mint_fails_if_can_not_transfer() {
         amount1_min: 0,
         recipient: user1(),
         deadline: 1
-        };
+    };
 
     nft_dispatcher.mint(mint_params);
 }
 
 #[test]
 fn test_mint_creates_a_token() {
-
     let (owner, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
     let (token0, token1) = token0_1();
     let fee = 3000;
-    let sqrt_price_X96 = 79228162514264337593543950336;  //  encode_price_sqrt(1, 1)
-    
+    let sqrt_price_X96 = 79228162514264337593543950336; //  encode_price_sqrt(1, 1)
+
     nft_dispatcher.create_and_initialize_pool(token0, token1, fee, sqrt_price_X96);
 
     let token0_dispatcher = IERC20Dispatcher { contract_address: token0 };
@@ -208,7 +229,7 @@ fn test_mint_creates_a_token() {
     start_prank(CheatTarget::One(token1), user1());
     token1_dispatcher.approve(nft_dispatcher.contract_address, 100 * pow(10, 18));
     stop_prank(CheatTarget::One(token1));
-    
+
     let mint_params = MintParams {
         token0: token0,
         token1: token1,
@@ -221,14 +242,16 @@ fn test_mint_creates_a_token() {
         amount1_min: 0,
         recipient: user1(),
         deadline: 10
-        };
+    };
 
     start_prank(CheatTarget::One(nft_dispatcher.contract_address), user1());
     nft_dispatcher.mint(mint_params);
     stop_prank(CheatTarget::One(nft_dispatcher.contract_address));
 
-    let nft_token_dispatcher = IERC20Dispatcher { contract_address: nft_dispatcher.contract_address };
-    
+    let nft_token_dispatcher = IERC20Dispatcher {
+        contract_address: nft_dispatcher.contract_address
+    };
+
     assert(nft_token_dispatcher.balance_of(user1()) == 1, 'incorrect balance');
 
     let (position_detail, pool_key) = nft_dispatcher.get_position(1);

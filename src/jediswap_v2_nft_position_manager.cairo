@@ -118,21 +118,44 @@ trait IJediSwapV2NFTPositionManager<TContractState> {
     fn get_factory(self: @TContractState) -> ContractAddress;
     fn get_position(self: @TContractState, token_id: u256) -> (PositionDetail, PoolKey);
     fn mint(ref self: TContractState, params: MintParams) -> (u256, u128, u256, u256);
-    fn increase_liquidity(ref self: TContractState, params: IncreaseLiquidityParams) -> (u128, u256, u256);
-    fn decrease_liquidity(ref self: TContractState, params: DecreaseLiquidityParams) -> (u256, u256);
+    fn increase_liquidity(
+        ref self: TContractState, params: IncreaseLiquidityParams
+    ) -> (u128, u256, u256);
+    fn decrease_liquidity(
+        ref self: TContractState, params: DecreaseLiquidityParams
+    ) -> (u256, u256);
     fn collect(ref self: TContractState, params: CollectParams) -> (u128, u128);
     fn burn(ref self: TContractState, token_id: u256);
-    fn create_and_initialize_pool(ref self: TContractState, token0: ContractAddress, token1: ContractAddress, fee: u32, sqrt_price_X96: u256) -> ContractAddress;
-    fn jediswap_v2_mint_callback(ref self: TContractState, amount0_owed: u256, amount1_owed: u256, callback_data_span: Span<felt252>);
+    fn create_and_initialize_pool(
+        ref self: TContractState,
+        token0: ContractAddress,
+        token1: ContractAddress,
+        fee: u32,
+        sqrt_price_X96: u256
+    ) -> ContractAddress;
+    fn jediswap_v2_mint_callback(
+        ref self: TContractState,
+        amount0_owed: u256,
+        amount1_owed: u256,
+        callback_data_span: Span<felt252>
+    );
 }
 
 #[starknet::contract]
 mod JediSwapV2NFTPositionManager {
-    use super::{PoolKey, PositionDetail, MintParams, AddLiquidityParams, IncreaseLiquidityParams, DecreaseLiquidityParams, CollectParams, MintCallbackData};
-    use starknet::{ContractAddress, get_contract_address, contract_address_const, get_caller_address, get_block_timestamp, contract_address_to_felt252};
+    use super::{
+        PoolKey, PositionDetail, MintParams, AddLiquidityParams, IncreaseLiquidityParams,
+        DecreaseLiquidityParams, CollectParams, MintCallbackData
+    };
+    use starknet::{
+        ContractAddress, get_contract_address, contract_address_const, get_caller_address,
+        get_block_timestamp, contract_address_to_felt252
+    };
     use integer::{u256_from_felt252};
 
-    use openzeppelin::token::erc20::interface::{IERC20MetadataDispatcher, IERC20MetadataDispatcherTrait};
+    use openzeppelin::token::erc20::interface::{
+        IERC20MetadataDispatcher, IERC20MetadataDispatcherTrait
+    };
     use jediswap_v2_core::libraries::sqrt_price_math::SqrtPriceMath::Q128;
     use jediswap_v2_core::libraries::position::{PositionKey};
     use jediswap_v2_core::libraries::tick_math::TickMath::get_sqrt_ratio_at_tick;
@@ -140,9 +163,13 @@ mod JediSwapV2NFTPositionManager {
     use jediswap_v2_periphery::libraries::callback_validation::CallbackValidation::verify_callback_pool_key;
     use jediswap_v2_periphery::libraries::periphery_payments::PeripheryPayments::pay;
 
-    use jediswap_v2_core::jediswap_v2_pool::{IJediSwapV2PoolDispatcher, IJediSwapV2PoolDispatcherTrait};
-    use jediswap_v2_core::jediswap_v2_factory::{IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait};
-    
+    use jediswap_v2_core::jediswap_v2_pool::{
+        IJediSwapV2PoolDispatcher, IJediSwapV2PoolDispatcherTrait
+    };
+    use jediswap_v2_core::jediswap_v2_factory::{
+        IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait
+    };
+
     use yas_core::numbers::signed_integer::{i32::i32, integer_trait::IntegerTrait};
     use yas_core::utils::math_utils::FullMath::mul_div;
     use yas_core::utils::math_utils::{pow};
@@ -241,7 +268,6 @@ mod JediSwapV2NFTPositionManager {
 
     #[external(v0)]
     impl ERC721MetadataImpl of super::IERC721Metadata<ContractState> {
-        
         fn name(self: @ContractState) -> felt252 {
             self.erc721_storage.ERC721_name.read()
         }
@@ -258,7 +284,6 @@ mod JediSwapV2NFTPositionManager {
 
     #[external(v0)]
     impl ERC721CamelMetadataImpl of super::IERC721CamelMetadata<ContractState> {
-        
         fn tokenURI(self: @ContractState, token_id: u256) -> Array<felt252> {
             self.token_uri(token_id)
         }
@@ -266,7 +291,6 @@ mod JediSwapV2NFTPositionManager {
 
     #[external(v0)]
     impl JediSwapV2NFTPositionManagerImpl of super::IJediSwapV2NFTPositionManager<ContractState> {
-        
         //TODO docs
         fn get_factory(self: @ContractState) -> ContractAddress {
             self.factory.read()
@@ -314,12 +338,26 @@ mod JediSwapV2NFTPositionManager {
             self.next_id.write(token_id + 1);
             self.erc721_storage._mint(params.recipient, token_id);
 
-            let position_info = pool_dispatcher.get_position_info(PositionKey {owner: get_contract_address(), tick_lower: params.tick_lower, tick_upper: params.tick_upper});
+            let position_info = pool_dispatcher
+                .get_position_info(
+                    PositionKey {
+                        owner: get_contract_address(),
+                        tick_lower: params.tick_lower,
+                        tick_upper: params.tick_upper
+                    }
+                );
 
             // idempotent set
-            let pool_id = self._cache_pool_key(pool_dispatcher.contract_address, PoolKey {token0: params.token0, token1: params.token1, fee: params.fee});
+            let pool_id = self
+                ._cache_pool_key(
+                    pool_dispatcher.contract_address,
+                    PoolKey { token0: params.token0, token1: params.token1, fee: params.fee }
+                );
 
-            self.positions.write(token_id,
+            self
+                .positions
+                .write(
+                    token_id,
                     PositionDetail {
                         operator: contract_address_const::<0>(),
                         pool_id: pool_id,
@@ -342,9 +380,11 @@ mod JediSwapV2NFTPositionManager {
         // @return The new liquidity amount as a result of the increase
         // @return The amount of token0 to achieve resulting liquidity
         // @return The amount of token1 to achieve resulting liquidity
-        fn increase_liquidity(ref self: ContractState, params: IncreaseLiquidityParams) -> (u128, u256, u256) {
+        fn increase_liquidity(
+            ref self: ContractState, params: IncreaseLiquidityParams
+        ) -> (u128, u256, u256) {
             _check_deadline(params.deadline);
-            
+
             let mut position = self.positions.read(params.token_id);
             let pool_key = self.pool_id_to_pool_key.read(position.pool_id);
 
@@ -365,11 +405,36 @@ mod JediSwapV2NFTPositionManager {
                 );
 
             // this is now updated to the current transaction
-            let position_info = pool_dispatcher.get_position_info(PositionKey {owner: get_contract_address(), tick_lower: position.tick_lower, tick_upper: position.tick_upper});
+            let position_info = pool_dispatcher
+                .get_position_info(
+                    PositionKey {
+                        owner: get_contract_address(),
+                        tick_lower: position.tick_lower,
+                        tick_upper: position.tick_upper
+                    }
+                );
 
-            position.tokens_owed_0 += mul_div(position_info.fee_growth_inside_0_last_X128 - position.fee_growth_inside_0_last_X128, position.liquidity.into(), Q128).try_into().unwrap();
+            position
+                .tokens_owed_0 +=
+                    mul_div(
+                        position_info.fee_growth_inside_0_last_X128
+                            - position.fee_growth_inside_0_last_X128,
+                        position.liquidity.into(),
+                        Q128
+                    )
+                .try_into()
+                .unwrap();
 
-            position.tokens_owed_1 += mul_div(position_info.fee_growth_inside_1_last_X128 - position.fee_growth_inside_1_last_X128, position.liquidity.into(), Q128).try_into().unwrap();
+            position
+                .tokens_owed_1 +=
+                    mul_div(
+                        position_info.fee_growth_inside_1_last_X128
+                            - position.fee_growth_inside_1_last_X128,
+                        position.liquidity.into(),
+                        Q128
+                    )
+                .try_into()
+                .unwrap();
 
             position.fee_growth_inside_0_last_X128 = position_info.fee_growth_inside_0_last_X128;
             position.fee_growth_inside_1_last_X128 = position_info.fee_growth_inside_1_last_X128;
@@ -380,33 +445,66 @@ mod JediSwapV2NFTPositionManager {
             self.emit(IncreaseLiquidity { token_id: params.token_id, liquidity, amount0, amount1 });
             (liquidity, amount0, amount1)
         }
-        
+
         // @notice Decreases the amount of liquidity in a position and accounts it to the position
         // @param params The params necessary to decrease liquidity of a position, encoded as `DecreaseLiquidityParams` in calldata
         // @return The amount of token0 accounted to the position's tokens owed
         // @return The amount of token1 accounted to the position's tokens owed
-        fn decrease_liquidity(ref self: ContractState, params: DecreaseLiquidityParams) -> (u256, u256) {
+        fn decrease_liquidity(
+            ref self: ContractState, params: DecreaseLiquidityParams
+        ) -> (u256, u256) {
             self._is_authorized_for_token(params.token_id);
             _check_deadline(params.deadline);
             assert(params.liquidity > 0, '0 liquidity');
-            
+
             let mut position = self.positions.read(params.token_id);
-            
+
             let position_liquidity = position.liquidity;
             assert(position_liquidity >= params.liquidity, 'not enough liquidity');
 
             let pool_key = self.pool_id_to_pool_key.read(position.pool_id);
-            let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: self.factory.read()};
-            let pool_address = factory_dispatcher.get_pool(pool_key.token0, pool_key.token1, pool_key.fee);
-            let pool_dispatcher = IJediSwapV2PoolDispatcher {contract_address: pool_address};
-            let (amount0, amount1) = pool_dispatcher.burn(position.tick_lower, position.tick_upper, params.liquidity);
+            let factory_dispatcher = IJediSwapV2FactoryDispatcher {
+                contract_address: self.factory.read()
+            };
+            let pool_address = factory_dispatcher
+                .get_pool(pool_key.token0, pool_key.token1, pool_key.fee);
+            let pool_dispatcher = IJediSwapV2PoolDispatcher { contract_address: pool_address };
+            let (amount0, amount1) = pool_dispatcher
+                .burn(position.tick_lower, position.tick_upper, params.liquidity);
 
             // this is now updated to the current transaction
-            let position_info = pool_dispatcher.get_position_info(PositionKey {owner: get_contract_address(), tick_lower: position.tick_lower, tick_upper: position.tick_upper});
+            let position_info = pool_dispatcher
+                .get_position_info(
+                    PositionKey {
+                        owner: get_contract_address(),
+                        tick_lower: position.tick_lower,
+                        tick_upper: position.tick_upper
+                    }
+                );
 
-            position.tokens_owed_0 += (amount0 + mul_div(position_info.fee_growth_inside_0_last_X128 - position.fee_growth_inside_0_last_X128, position.liquidity.into(), Q128)).try_into().unwrap();
+            position
+                .tokens_owed_0 +=
+                    (amount0
+                        + mul_div(
+                            position_info.fee_growth_inside_0_last_X128
+                                - position.fee_growth_inside_0_last_X128,
+                            position.liquidity.into(),
+                            Q128
+                        ))
+                .try_into()
+                .unwrap();
 
-            position.tokens_owed_1 += (amount1 + mul_div(position_info.fee_growth_inside_1_last_X128 - position.fee_growth_inside_1_last_X128, position.liquidity.into(), Q128)).try_into().unwrap();
+            position
+                .tokens_owed_1 +=
+                    (amount1
+                        + mul_div(
+                            position_info.fee_growth_inside_1_last_X128
+                                - position.fee_growth_inside_1_last_X128,
+                            position.liquidity.into(),
+                            Q128
+                        ))
+                .try_into()
+                .unwrap();
 
             position.fee_growth_inside_0_last_X128 = position_info.fee_growth_inside_0_last_X128;
             position.fee_growth_inside_1_last_X128 = position_info.fee_growth_inside_1_last_X128;
@@ -415,7 +513,12 @@ mod JediSwapV2NFTPositionManager {
 
             self.positions.write(params.token_id, position);
 
-            self.emit(DecreaseLiquidity { token_id: params.token_id, liquidity: params.liquidity, amount0, amount1 });
+            self
+                .emit(
+                    DecreaseLiquidity {
+                        token_id: params.token_id, liquidity: params.liquidity, amount0, amount1
+                    }
+                );
             (amount0, amount1)
         }
 
@@ -426,7 +529,7 @@ mod JediSwapV2NFTPositionManager {
         fn collect(ref self: ContractState, params: CollectParams) -> (u128, u128) {
             self._is_authorized_for_token(params.token_id);
             assert(params.amount0_max > 0 || params.amount1_max > 0, 'nothing to collect');
-            
+
             let recipient = if (params.recipient.is_zero()) {
                 get_contract_address()
             } else {
@@ -436,9 +539,12 @@ mod JediSwapV2NFTPositionManager {
             let mut position = self.positions.read(params.token_id);
 
             let pool_key = self.pool_id_to_pool_key.read(position.pool_id);
-            let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: self.factory.read()};
-            let pool_address = factory_dispatcher.get_pool(pool_key.token0, pool_key.token1, pool_key.fee);
-            let pool_dispatcher = IJediSwapV2PoolDispatcher {contract_address: pool_address};
+            let factory_dispatcher = IJediSwapV2FactoryDispatcher {
+                contract_address: self.factory.read()
+            };
+            let pool_address = factory_dispatcher
+                .get_pool(pool_key.token0, pool_key.token1, pool_key.fee);
+            let pool_dispatcher = IJediSwapV2PoolDispatcher { contract_address: pool_address };
 
             let mut tokens_owed_0 = position.tokens_owed_0;
             let mut tokens_owed_1 = position.tokens_owed_1;
@@ -446,13 +552,40 @@ mod JediSwapV2NFTPositionManager {
             // trigger an update of the position fees owed and fee growth snapshots if it has any liquidity
             if (position.liquidity > 0) {
                 pool_dispatcher.burn(position.tick_lower, position.tick_upper, 0);
-                let position_info = pool_dispatcher.get_position_info(PositionKey {owner: get_contract_address(), tick_lower: position.tick_lower, tick_upper: position.tick_upper});
-                
-                tokens_owed_0 += mul_div(position_info.fee_growth_inside_0_last_X128 - position.fee_growth_inside_0_last_X128, position.liquidity.into(), Q128).try_into().unwrap();
-                tokens_owed_1 += mul_div(position_info.fee_growth_inside_1_last_X128 - position.fee_growth_inside_1_last_X128, position.liquidity.into(), Q128).try_into().unwrap();
+                let position_info = pool_dispatcher
+                    .get_position_info(
+                        PositionKey {
+                            owner: get_contract_address(),
+                            tick_lower: position.tick_lower,
+                            tick_upper: position.tick_upper
+                        }
+                    );
 
-                position.fee_growth_inside_0_last_X128 = position_info.fee_growth_inside_0_last_X128;
-                position.fee_growth_inside_1_last_X128 = position_info.fee_growth_inside_1_last_X128;
+                tokens_owed_0 +=
+                    mul_div(
+                        position_info.fee_growth_inside_0_last_X128
+                            - position.fee_growth_inside_0_last_X128,
+                        position.liquidity.into(),
+                        Q128
+                    )
+                    .try_into()
+                    .unwrap();
+                tokens_owed_1 +=
+                    mul_div(
+                        position_info.fee_growth_inside_1_last_X128
+                            - position.fee_growth_inside_1_last_X128,
+                        position.liquidity.into(),
+                        Q128
+                    )
+                    .try_into()
+                    .unwrap();
+
+                position
+                    .fee_growth_inside_0_last_X128 = position_info
+                    .fee_growth_inside_0_last_X128;
+                position
+                    .fee_growth_inside_1_last_X128 = position_info
+                    .fee_growth_inside_1_last_X128;
             }
 
             // compute the arguments to give to the pool#collect method
@@ -468,8 +601,15 @@ mod JediSwapV2NFTPositionManager {
             };
 
             // the actual amounts collected are returned
-            let (amount0, amount1) = pool_dispatcher.collect(recipient, position.tick_lower, position.tick_upper, amount0_collect, amount1_collect);
-            
+            let (amount0, amount1) = pool_dispatcher
+                .collect(
+                    recipient,
+                    position.tick_lower,
+                    position.tick_upper,
+                    amount0_collect,
+                    amount1_collect
+                );
+
             // sometimes there will be a few less wei than expected due to rounding down in core, but we just subtract the full amount expected
             // instead of the actual amount so we can burn the token
             position.tokens_owed_0 = tokens_owed_0 - amount0_collect;
@@ -477,7 +617,12 @@ mod JediSwapV2NFTPositionManager {
 
             self.positions.write(params.token_id, position);
 
-            self.emit(Collect { token_id: params.token_id, recipient, amount0_collect, amount1_collect });
+            self
+                .emit(
+                    Collect {
+                        token_id: params.token_id, recipient, amount0_collect, amount1_collect
+                    }
+                );
             (amount0, amount1)
         }
 
@@ -487,8 +632,17 @@ mod JediSwapV2NFTPositionManager {
         fn burn(ref self: ContractState, token_id: u256) {
             self._is_authorized_for_token(token_id);
             let mut position = self.positions.read(token_id);
-            assert(position.liquidity == 0 && position.tokens_owed_0 == 0 && position.tokens_owed_1 == 0, 'Not cleared');
-            self.positions.write(token_id, PositionDetail {
+            assert(
+                position.liquidity == 0
+                    && position.tokens_owed_0 == 0
+                    && position.tokens_owed_1 == 0,
+                'Not cleared'
+            );
+            self
+                .positions
+                .write(
+                    token_id,
+                    PositionDetail {
                         operator: contract_address_const::<0>(),
                         pool_id: 0,
                         tick_lower: IntegerTrait::<i32>::new(0, false),
@@ -498,7 +652,8 @@ mod JediSwapV2NFTPositionManager {
                         fee_growth_inside_1_last_X128: 0,
                         tokens_owed_0: 0,
                         tokens_owed_1: 0
-                    });
+                    }
+                );
             self.erc721_storage._burn(token_id);
         }
 
@@ -509,17 +664,30 @@ mod JediSwapV2NFTPositionManager {
         // @param fee The fee amount of the v2 pool for the specified token pair
         // @param sqrt_price_X96 The initial square root price of the pool as a Q64.96 value
         // @return Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary
-        fn create_and_initialize_pool(ref self: ContractState, token0: ContractAddress, token1: ContractAddress, fee: u32, sqrt_price_X96: u256) -> ContractAddress {
-            assert(u256_from_felt252(contract_address_to_felt252(token0)) < u256_from_felt252(contract_address_to_felt252(token1)), 'Tokens not sorted');
-            let factory_dispatcher = IJediSwapV2FactoryDispatcher {contract_address: self.factory.read()};
+        fn create_and_initialize_pool(
+            ref self: ContractState,
+            token0: ContractAddress,
+            token1: ContractAddress,
+            fee: u32,
+            sqrt_price_X96: u256
+        ) -> ContractAddress {
+            assert(
+                u256_from_felt252(
+                    contract_address_to_felt252(token0)
+                ) < u256_from_felt252(contract_address_to_felt252(token1)),
+                'Tokens not sorted'
+            );
+            let factory_dispatcher = IJediSwapV2FactoryDispatcher {
+                contract_address: self.factory.read()
+            };
             let mut pool_address = factory_dispatcher.get_pool(token0, token1, fee);
 
             if (pool_address.is_zero()) {
                 pool_address = factory_dispatcher.create_pool(token0, token1, fee);
-                let pool_dispatcher = IJediSwapV2PoolDispatcher {contract_address: pool_address};
+                let pool_dispatcher = IJediSwapV2PoolDispatcher { contract_address: pool_address };
                 pool_dispatcher.initialize(sqrt_price_X96);
             } else {
-                let pool_dispatcher = IJediSwapV2PoolDispatcher {contract_address: pool_address};
+                let pool_dispatcher = IJediSwapV2PoolDispatcher { contract_address: pool_address };
                 let sqrt_price_X96_existing = pool_dispatcher.get_sqrt_price_X96();
                 if (sqrt_price_X96_existing == 0) {
                     pool_dispatcher.initialize(sqrt_price_X96);
@@ -528,10 +696,16 @@ mod JediSwapV2NFTPositionManager {
             pool_address
         }
 
-        fn jediswap_v2_mint_callback(ref self: ContractState, amount0_owed: u256, amount1_owed: u256, mut callback_data_span: Span<felt252>) {
+        fn jediswap_v2_mint_callback(
+            ref self: ContractState,
+            amount0_owed: u256,
+            amount1_owed: u256,
+            mut callback_data_span: Span<felt252>
+        ) {
             let caller = get_caller_address();
-            
-            let decoded_data = Serde::<MintCallbackData>::deserialize(ref callback_data_span).unwrap();
+
+            let decoded_data = Serde::<MintCallbackData>::deserialize(ref callback_data_span)
+                .unwrap();
 
             verify_callback_pool_key(self.factory.read(), decoded_data.pool_key);
 
@@ -546,9 +720,10 @@ mod JediSwapV2NFTPositionManager {
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-
         // @dev Caches a pool key
-        fn _cache_pool_key(ref self: ContractState, pool: ContractAddress, pool_key: PoolKey) -> u64 {
+        fn _cache_pool_key(
+            ref self: ContractState, pool: ContractAddress, pool_key: PoolKey
+        ) -> u64 {
             let mut pool_id = self.pool_ids.read(pool);
             if (pool_id == 0) {
                 pool_id = self.next_pool_id.read();
@@ -560,11 +735,18 @@ mod JediSwapV2NFTPositionManager {
         }
 
         // @notice Add liquidity to an initialized pool
-        fn _add_liquidity(self: @ContractState, params: AddLiquidityParams) -> (u128, u256, u256, IJediSwapV2PoolDispatcher) {
-            let pool_key = PoolKey {token0: params.token0, token1: params.token1, fee: params.fee};
+        fn _add_liquidity(
+            self: @ContractState, params: AddLiquidityParams
+        ) -> (u128, u256, u256, IJediSwapV2PoolDispatcher) {
+            let pool_key = PoolKey {
+                token0: params.token0, token1: params.token1, fee: params.fee
+            };
 
-            let factory_dispatcher = IJediSwapV2FactoryDispatcher { contract_address: self.factory.read() };
-            let pool_address = factory_dispatcher.get_pool(params.token0, params.token1, params.fee);
+            let factory_dispatcher = IJediSwapV2FactoryDispatcher {
+                contract_address: self.factory.read()
+            };
+            let pool_address = factory_dispatcher
+                .get_pool(params.token0, params.token1, params.fee);
 
             assert(pool_address.into() != 0, 'pool not created');
 
@@ -575,14 +757,34 @@ mod JediSwapV2NFTPositionManager {
             let sqrt_ratio_a_X96 = get_sqrt_ratio_at_tick(params.tick_lower);
             let sqrt_ratio_b_X96 = get_sqrt_ratio_at_tick(params.tick_upper);
 
-            let liquidity = get_liquidity_for_amounts(sqrt_price_X96, sqrt_ratio_a_X96, sqrt_ratio_b_X96, params.amount0_desired, params.amount1_desired);
+            let liquidity = get_liquidity_for_amounts(
+                sqrt_price_X96,
+                sqrt_ratio_a_X96,
+                sqrt_ratio_b_X96,
+                params.amount0_desired,
+                params.amount1_desired
+            );
 
             let mut mint_callback_data: Array<felt252> = ArrayTrait::new();
-            let mint_callback_data_struct = MintCallbackData {pool_key, payer: get_caller_address()};
-            Serde::<MintCallbackData>::serialize(@mint_callback_data_struct, ref mint_callback_data);
-            let (amount0, amount1) = pool_dispatcher.mint(params.recipient, params.tick_lower, params.tick_upper, liquidity, mint_callback_data);
+            let mint_callback_data_struct = MintCallbackData {
+                pool_key, payer: get_caller_address()
+            };
+            Serde::<
+                MintCallbackData
+            >::serialize(@mint_callback_data_struct, ref mint_callback_data);
+            let (amount0, amount1) = pool_dispatcher
+                .mint(
+                    params.recipient,
+                    params.tick_lower,
+                    params.tick_upper,
+                    liquidity,
+                    mint_callback_data
+                );
 
-            assert(amount0 >= params.amount0_min && amount1 >= params.amount1_min, 'Price slippage check');
+            assert(
+                amount0 >= params.amount0_min && amount1 >= params.amount1_min,
+                'Price slippage check'
+            );
             (liquidity, amount0, amount1, pool_dispatcher)
         }
 
@@ -592,7 +794,6 @@ mod JediSwapV2NFTPositionManager {
         }
 
         fn _token_uri(self: @ContractState, token_id: u256) -> Array<felt252> {
-
             let mut content = array![];
             let (position, pool_key) = self.get_position(token_id);
 
@@ -679,8 +880,8 @@ mod JediSwapV2NFTPositionManager {
     }
 
     fn _check_deadline(deadline: u64) {
-            let block_timestamp = get_block_timestamp();
-            assert(deadline >= block_timestamp, 'Transaction too old');
+        let block_timestamp = get_block_timestamp();
+        assert(deadline >= block_timestamp, 'Transaction too old');
     }
 
     fn _num_to_string(ref content: Array<felt252>, mut num_to_convert: u256, mut decimal: u256) {

@@ -1,4 +1,6 @@
-use jediswap_v2_periphery::libraries::liquidity_amounts::LiquidityAmounts::{get_liquidity_for_amounts, get_amounts_for_liquidity};
+use jediswap_v2_periphery::libraries::liquidity_amounts::LiquidityAmounts::{
+    get_liquidity_for_amounts, get_amounts_for_liquidity
+};
 use yas_core::utils::math_utils::{pow};
 use snforge_std::PrintTrait;
 
@@ -12,7 +14,9 @@ fn test_get_liquidity_for_amounts_for_price_inside() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let liquidity = get_liquidity_for_amounts(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200);
+    let liquidity = get_liquidity_for_amounts(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200
+    );
 
     assert(liquidity == 2148, 'incorrect liquidity');
 }
@@ -23,7 +27,9 @@ fn test_get_liquidity_for_amounts_for_price_below() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let liquidity = get_liquidity_for_amounts(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200);
+    let liquidity = get_liquidity_for_amounts(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200
+    );
 
     assert(liquidity == 1048, 'incorrect liquidity');
 }
@@ -34,7 +40,9 @@ fn test_get_liquidity_for_amounts_for_price_above() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let liquidity = get_liquidity_for_amounts(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200);
+    let liquidity = get_liquidity_for_amounts(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200
+    );
 
     assert(liquidity == 2097, 'incorrect liquidity');
 }
@@ -45,7 +53,9 @@ fn test_get_liquidity_for_amounts_for_price_equal_to_lower_boundary() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let liquidity = get_liquidity_for_amounts(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200);
+    let liquidity = get_liquidity_for_amounts(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200
+    );
 
     assert(liquidity == 1048, 'incorrect liquidity');
 }
@@ -56,7 +66,9 @@ fn test_get_liquidity_for_amounts_for_price_equal_to_upper_boundary() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let liquidity = get_liquidity_for_amounts(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200);
+    let liquidity = get_liquidity_for_amounts(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 100, 200
+    );
 
     assert(liquidity == 2097, 'incorrect liquidity');
 }
@@ -67,7 +79,9 @@ fn test_get_amounts_for_liquidity_for_price_inside() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let (amount0, amount1) = get_amounts_for_liquidity(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 2148);
+    let (amount0, amount1) = get_amounts_for_liquidity(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 2148
+    );
 
     assert(amount0 == 99, 'incorrect amount0');
     assert(amount1 == 99, 'incorrect amount1');
@@ -79,7 +93,9 @@ fn test_get_amounts_for_liquidity_for_price_below() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let (amount0, amount1) = get_amounts_for_liquidity(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 1048);
+    let (amount0, amount1) = get_amounts_for_liquidity(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 1048
+    );
 
     assert(amount0 == 99, 'incorrect amount0');
     assert(amount1 == 0, 'incorrect amount1');
@@ -91,7 +107,9 @@ fn test_get_amounts_for_liquidity_for_price_above() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let (amount0, amount1) = get_amounts_for_liquidity(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 2097);
+    let (amount0, amount1) = get_amounts_for_liquidity(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 2097
+    );
 
     assert(amount0 == 0, 'incorrect amount0');
     assert(amount1 == 199, 'incorrect amount1');
@@ -103,7 +121,9 @@ fn test_get_amounts_for_liquidity_for_price_equal_to_lower_boundary() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let (amount0, amount1) = get_amounts_for_liquidity(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 1048);
+    let (amount0, amount1) = get_amounts_for_liquidity(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 1048
+    );
 
     assert(amount0 == 99, 'incorrect amount0');
     assert(amount1 == 0, 'incorrect amount1');
@@ -115,7 +135,9 @@ fn test_get_amounts_for_liquidity_for_price_equal_to_upper_boundary() {
     let sqrt_price_a_X96 = 75541088972021055470308425728; //  encode_price_sqrt(100, 110)
     let sqrt_price_b_X96 = 83095197869223164535776477184; //  encode_price_sqrt(110, 100)
 
-    let (amount0, amount1) = get_amounts_for_liquidity(sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 2097);
+    let (amount0, amount1) = get_amounts_for_liquidity(
+        sqrt_price_X96, sqrt_price_a_X96, sqrt_price_b_X96, 2097
+    );
 
     assert(amount0 == 0, 'incorrect amount0');
     assert(amount1 == 199, 'incorrect amount1');
