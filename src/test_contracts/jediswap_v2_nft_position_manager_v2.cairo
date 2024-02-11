@@ -3,17 +3,7 @@
 
 use starknet::{ContractAddress, ClassHash};
 use yas_core::numbers::signed_integer::{i32::i32};
-
-// @notice The identifying key of the pool
-#[derive(Copy, Drop, Serde, starknet::Store)]
-struct PoolKey {
-    // @notice The first of the two tokens of the pool, sorted by address
-    token0: ContractAddress,
-    // @notice The second of the two tokens of the pool, sorted by address
-    token1: ContractAddress,
-    // @notice The pool's fee in hundredths of a bip, i.e. 1e-6
-    fee: u32
-}
+use jediswap_v2_periphery::jediswap_v2_nft_position_manager::PoolKey;
 
 // @notice details about the JediSwap V2 position
 #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -114,8 +104,8 @@ trait IERC721CamelMetadata<TContractState> {
 }
 
 #[starknet::interface]
-trait IJediSwapV2NFTPositionManager<TContractState> {
-    fn get_factory(self: @TContractState) -> ContractAddress;
+trait IJediSwapV2NFTPositionManagerV2<TContractState> {
+    fn get_factory_v2(self: @TContractState) -> ContractAddress;
     fn get_position(self: @TContractState, token_id: u256) -> (PositionDetail, PoolKey);
     fn mint(ref self: TContractState, params: MintParams) -> (u256, u128, u256, u256);
     fn increase_liquidity(
@@ -143,7 +133,7 @@ trait IJediSwapV2NFTPositionManager<TContractState> {
 }
 
 #[starknet::contract]
-mod JediSwapV2NFTPositionManager {
+mod JediSwapV2NFTPositionManagerV2 {
     use super::{
         PoolKey, PositionDetail, MintParams, AddLiquidityParams, IncreaseLiquidityParams,
         DecreaseLiquidityParams, CollectParams, MintCallbackData
@@ -300,9 +290,11 @@ mod JediSwapV2NFTPositionManager {
     }
 
     #[external(v0)]
-    impl JediSwapV2NFTPositionManagerImpl of super::IJediSwapV2NFTPositionManager<ContractState> {
+    impl JediSwapV2NFTPositionManagerV2Impl of super::IJediSwapV2NFTPositionManagerV2<
+        ContractState
+    > {
         //TODO docs
-        fn get_factory(self: @ContractState) -> ContractAddress {
+        fn get_factory_v2(self: @ContractState) -> ContractAddress {
             self.factory.read()
         }
 

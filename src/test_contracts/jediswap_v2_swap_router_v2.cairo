@@ -61,8 +61,8 @@ struct SwapCallbackData {
 
 
 #[starknet::interface]
-trait IJediSwapV2SwapRouter<TContractState> {
-    fn get_factory(self: @TContractState) -> ContractAddress;
+trait IJediSwapV2SwapRouterV2<TContractState> {
+    fn get_factory_v2(self: @TContractState) -> ContractAddress;
     fn exact_input_single(ref self: TContractState, params: ExactInputSingleParams) -> u256;
     fn exact_input(ref self: TContractState, params: ExactInputParams) -> u256;
     fn exact_output_single(ref self: TContractState, params: ExactOutputSingleParams) -> u256;
@@ -77,7 +77,7 @@ trait IJediSwapV2SwapRouter<TContractState> {
 }
 
 #[starknet::contract]
-mod JediSwapV2SwapRouter {
+mod JediSwapV2SwapRouterV2 {
     use super::{
         ExactInputSingleParams, ExactInputParams, ExactOutputSingleParams, ExactOutputParams,
         PathData, SwapCallbackData
@@ -133,8 +133,8 @@ mod JediSwapV2SwapRouter {
     }
 
     #[external(v0)]
-    impl JediSwapV2SwapRouterImpl of super::IJediSwapV2SwapRouter<ContractState> {
-        fn get_factory(self: @ContractState) -> ContractAddress {
+    impl JediSwapV2SwapRouterV2Impl of super::IJediSwapV2SwapRouterV2<ContractState> {
+        fn get_factory_v2(self: @ContractState) -> ContractAddress {
             self.factory.read()
         }
 
