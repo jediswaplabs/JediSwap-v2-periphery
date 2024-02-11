@@ -10,5 +10,4 @@ mod libraries {
 
 mod test_contracts {
     mod jediswap_v2_nft_position_manager_v2;
-    mod jediswap_v2_swap_router_v2;
 }

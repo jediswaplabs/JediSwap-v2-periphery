@@ -1,7 +1,7 @@
 // @title JediSwap V2 Swap Router
 // @notice Router for stateless execution of swaps against JediSwap V2
 
-use starknet::{ContractAddress, ClassHash};
+use starknet::ContractAddress;
 use yas_core::numbers::signed_integer::{i256::i256};
 
 #[derive(Copy, Drop, Serde)]
@@ -73,7 +73,6 @@ trait IJediSwapV2SwapRouter<TContractState> {
         amount1_delta: i256,
         callback_data_span: Span<felt252>
     );
-    fn upgrade(ref self: TContractState, new_class_hash: ClassHash);
 }
 
 #[starknet::contract]
@@ -83,7 +82,7 @@ mod JediSwapV2SwapRouter {
         PathData, SwapCallbackData
     };
     use starknet::{
-        ContractAddress, ClassHash, get_contract_address, get_caller_address, get_block_timestamp,
+        ContractAddress, get_contract_address, get_caller_address, get_block_timestamp,
         contract_address_to_felt252
     };
     use integer::{u256_from_felt252, BoundedInt};
@@ -101,29 +100,13 @@ mod JediSwapV2SwapRouter {
         IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait
     };
 
-    use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
-    use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
-
     use yas_core::numbers::signed_integer::{i256::i256, integer_trait::IntegerTrait};
     use yas_core::utils::math_utils::FullMath::mul_div;
-
-    component!(path: UpgradeableComponent, storage: upgradeable_storage, event: UpgradeableEvent);
-
-    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
-
-    #[event]
-    #[derive(Drop, starknet::Event)]
-    enum Event {
-        #[flat]
-        UpgradeableEvent: UpgradeableComponent::Event
-    }
 
     #[storage]
     struct Storage {
         factory: ContractAddress,
-        amount_in_cached: u256,
-        #[substorage(v0)]
-        upgradeable_storage: UpgradeableComponent::Storage
+        amount_in_cached: u256
     }
 
     #[constructor]
@@ -319,13 +302,6 @@ mod JediSwapV2SwapRouter {
                     ); // swap in/out because exact output swaps are reversed
                 }
             }
-        }
-
-        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
-            let caller = get_caller_address();
-            let ownable_dispatcher = IOwnableDispatcher { contract_address: self.factory.read() };
-            assert(ownable_dispatcher.owner() == caller, 'Invalid caller');
-            self.upgradeable_storage._upgrade(new_class_hash);
         }
     }
 

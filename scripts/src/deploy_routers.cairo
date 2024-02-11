@@ -8,7 +8,7 @@ use deploy_scripts::utils::{owner};
 fn main() {
     let max_fee = 9999999999999999;
     let salt = 0x6;
-    let starting_nonce = 7; // Change it when running script, TODO get from environment
+    let starting_nonce = 8; // Change it when running script, TODO get from environment
     let factory_contract_address: ContractAddress =
         0x04ba0de31008f4e3edd42b3c31db8f49490505885d684b78f5aa1572850b3a5a
         .try_into()

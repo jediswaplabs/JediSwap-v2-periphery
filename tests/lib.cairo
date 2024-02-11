@@ -6,5 +6,4 @@ mod test_libraries {
 
 mod test_nft_position_manager;
 mod test_upgrade_nft_position_manager;
-mod test_upgrade_swap_router;
 mod utils;
