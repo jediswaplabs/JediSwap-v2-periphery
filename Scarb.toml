@@ -17,4 +17,4 @@ starknet = "2.4.3"
 yas_core = { git = "https://github.com/lambdaclass/yet-another-swap.git" }
 snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.16.0" }
 openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v0.8.0" }
-jediswap_v2_core = {path = "../JediSwap-v2-core"}
+jediswap_v2_core = { git = "https://github.com/jediswaplabs/JediSwap-v2-core.git" }
