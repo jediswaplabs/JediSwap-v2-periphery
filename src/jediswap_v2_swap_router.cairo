@@ -115,7 +115,7 @@ mod JediSwapV2SwapRouter {
         self.amount_in_cached.write(BoundedInt::max());
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl JediSwapV2SwapRouterImpl of super::IJediSwapV2SwapRouter<ContractState> {
         fn get_factory(self: @ContractState) -> ContractAddress {
             self.factory.read()

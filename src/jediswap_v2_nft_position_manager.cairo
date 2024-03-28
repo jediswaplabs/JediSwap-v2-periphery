@@ -103,14 +103,14 @@ struct MintCallbackData {
 
 #[starknet::interface]
 trait IERC721Metadata<TContractState> {
-    fn name(self: @TContractState) -> felt252;
-    fn symbol(self: @TContractState) -> felt252;
-    fn token_uri(self: @TContractState, token_id: u256) -> Array<felt252>;
+    fn name(self: @TContractState) -> ByteArray;
+    fn symbol(self: @TContractState) -> ByteArray;
+    fn token_uri(self: @TContractState, token_id: u256) -> ByteArray;
 }
 
 #[starknet::interface]
 trait IERC721CamelMetadata<TContractState> {
-    fn tokenURI(self: @TContractState, token_id: u256) -> Array<felt252>;
+    fn tokenURI(self: @TContractState, token_id: u256) -> ByteArray;
 }
 
 #[starknet::interface]
@@ -270,37 +270,37 @@ mod JediSwapV2NFTPositionManager {
 
     #[constructor]
     fn constructor(ref self: ContractState, factory: ContractAddress) {
-        self.erc721_storage.initializer('JediSwap V2 Positions NFT', 'JEDI-V2-POS');
+        self.erc721_storage.initializer("JediSwap V2 Positions NFT", "JEDI-V2-POS", "");
 
         self.factory.write(factory);
         self.next_id.write(1);
         self.next_pool_id.write(1);
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl ERC721MetadataImpl of super::IERC721Metadata<ContractState> {
-        fn name(self: @ContractState) -> felt252 {
+        fn name(self: @ContractState) -> ByteArray {
             self.erc721_storage.ERC721_name.read()
         }
 
-        fn symbol(self: @ContractState) -> felt252 {
+        fn symbol(self: @ContractState) -> ByteArray {
             self.erc721_storage.ERC721_symbol.read()
         }
 
-        fn token_uri(self: @ContractState, token_id: u256) -> Array<felt252> {
+        fn token_uri(self: @ContractState, token_id: u256) -> ByteArray {
             assert(self.erc721_storage._exists(token_id), 'ERC721: invalid token ID');
             self._token_uri(token_id)
         }
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl ERC721CamelMetadataImpl of super::IERC721CamelMetadata<ContractState> {
-        fn tokenURI(self: @ContractState, token_id: u256) -> Array<felt252> {
+        fn tokenURI(self: @ContractState, token_id: u256) -> ByteArray {
             self.token_uri(token_id)
         }
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl JediSwapV2NFTPositionManagerImpl of super::IJediSwapV2NFTPositionManager<ContractState> {
         //TODO docs
         fn get_factory(self: @ContractState) -> ContractAddress {
@@ -809,32 +809,32 @@ mod JediSwapV2NFTPositionManager {
             assert(self.erc721_storage._is_approved_or_owner(caller, token_id), 'Not approved');
         }
 
-        fn _token_uri(self: @ContractState, token_id: u256) -> Array<felt252> {
-            let mut content = array![];
-            let (position, pool_key) = self.get_position(token_id);
+        fn _token_uri(self: @ContractState, token_id: u256) -> ByteArray {
+            let mut content: ByteArray = "";
+            let (_, pool_key) = self.get_position(token_id);
 
             let token_0_dispatcher = IERC20MetadataDispatcher { contract_address: pool_key.token0 };
             let token_1_dispatcher = IERC20MetadataDispatcher { contract_address: pool_key.token1 };
 
             // Name & Description
-            content.append('data:application/json;utf8,');
-            content.append('{"name":"JediSwap V2 Position",');
-            content.append('"description":"This NFT ');
-            content.append('represents liquidity position ');
-            content.append('in a JediSwap V2 ');
-            content.append(token_0_dispatcher.symbol());
-            content.append('-');
-            content.append(token_1_dispatcher.symbol());
-            content.append(' ');
-            fee_to_string(ref content, pool_key.fee.into());
-            content.append('% ');
-            content.append(' pool. The owner of this NFT ');
-            content.append('can modify or redeem the ');
-            content.append('position."');
+            content.append_word('data:application/json;utf8,', 27);
+            content.append_word('{"name":"JediSwap V2 Position",', 28);
+            content.append_word('"description":"This NFT ', 24);
+            content.append_word('represents liquidity position ', 30);
+            content.append_word('in a JediSwap V2 ', 17);
+            content.append(@token_0_dispatcher.symbol());
+            content.append_word('-', 1);
+            content.append(@token_1_dispatcher.symbol());
+            content.append_word(' ', 1);
+            // fee_to_string(ref content, pool_key.fee.into());
+            content.append_word('% ', 2);
+            content.append_word(' pool. The owner of this NFT ', 29);
+            content.append_word('can modify or redeem the ', 25);
+            content.append_word('position."', 10);
             // // Image
-            content.append(',"image":"');
-            content.append('https://static.jediswap.');
-            content.append('xyz/V2NFT.png"}');
+            content.append_word(',"image":"', 10);
+            content.append_word('https://static.jediswap.', 23);
+            content.append_word('xyz/V2NFT.png"}', 15);
             // content.append('position. Deposit Amounts: ');
             // content.append('~0 ETH & ~0.000002 USDC"');
 

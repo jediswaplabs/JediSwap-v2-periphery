@@ -104,7 +104,6 @@ mod LiquidityAmounts {
         } else {
             (sqrt_ratio_a_X96, sqrt_ratio_b_X96)
         };
-        let liquidity_u256: u256 = liquidity.into();
         mul_div(liquidity.into(), sqrt_ratio_b_X96 - sqrt_ratio_a_X96, Q96)
     }
 

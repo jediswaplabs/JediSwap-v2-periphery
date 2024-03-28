@@ -11,17 +11,17 @@ mod NFTDescriptor {
     // @param content The array to append to
     // @param num_to_convert The number to convert
     // @param decimal Number of digits
-    fn fee_to_string(ref content: Array<felt252>, mut num_to_convert: u256) {
+    fn fee_to_string(ref content: ByteArray, mut num_to_convert: u256) {
         let mut decimal = 4;
         let before_decimal = num_to_convert / pow(10, decimal);
         let after_decimal = num_to_convert % pow(10, decimal);
         if (before_decimal > 0) {
-            content.append(before_decimal.try_into().unwrap() + 48);
+            content.append_byte(before_decimal.try_into().unwrap() + 48);
             loop {
                 break true;
             };
         } else {
-            content.append('0.')
+            content.append_word('0.', 2)
         }
         num_to_convert = after_decimal;
         decimal -= 1;
@@ -31,7 +31,7 @@ mod NFTDescriptor {
             }
             let q = num_to_convert / pow(10, decimal);
             let r = num_to_convert % pow(10, decimal);
-            content.append(q.try_into().unwrap() + 48);
+            content.append_byte(q.try_into().unwrap() + 48);
             num_to_convert = r;
             decimal -= 1;
         };

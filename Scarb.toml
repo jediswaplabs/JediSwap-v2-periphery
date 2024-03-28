@@ -13,7 +13,7 @@ allowed-libfuncs-list.name = "all"
 build-external-contracts = ["openzeppelin::presets::erc20::ERC20", "jediswap_v2_core::jediswap_v2_pool::JediSwapV2Pool", "jediswap_v2_core::jediswap_v2_factory::JediSwapV2Factory"]
 
 [dependencies]
-starknet = "2.4.3"
-snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.16.0" }
-openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v0.8.0" }
+starknet = "2.6.3"
+snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.20.1" }
+openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v0.10.0" }
 jediswap_v2_core = { git = "https://github.com/jediswaplabs/JediSwap-v2-core.git", branch= "5-bug-fixes"}
