@@ -2,7 +2,7 @@
 // @notice Wraps JediSwap V2 positions in the ERC721 non-fungible token interface
 
 use starknet::{ContractAddress, ClassHash};
-use yas_core::numbers::signed_integer::{i32::i32};
+use jediswap_v2_core::libraries::signed_integers::{i32::i32};
 
 // @notice The identifying key of the pool
 #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -161,6 +161,7 @@ mod JediSwapV2NFTPositionManager {
     use jediswap_v2_core::libraries::sqrt_price_math::SqrtPriceMath::Q128;
     use jediswap_v2_core::libraries::position::{PositionKey};
     use jediswap_v2_core::libraries::tick_math::TickMath::get_sqrt_ratio_at_tick;
+    use jediswap_v2_core::libraries::math_utils::mod_subtraction;
     use jediswap_v2_periphery::libraries::liquidity_amounts::LiquidityAmounts::get_liquidity_for_amounts;
     use jediswap_v2_periphery::libraries::callback_validation::CallbackValidation::verify_callback_pool_key;
     use jediswap_v2_periphery::libraries::nft_descriptor::NFTDescriptor::fee_to_string;
@@ -173,9 +174,9 @@ mod JediSwapV2NFTPositionManager {
         IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait
     };
 
-    use yas_core::numbers::signed_integer::{i32::i32, integer_trait::IntegerTrait};
-    use yas_core::utils::math_utils::FullMath::mul_div;
-    use yas_core::utils::math_utils::{pow};
+    use jediswap_v2_core::libraries::signed_integers::{i32::i32, integer_trait::IntegerTrait};
+    use jediswap_v2_core::libraries::full_math::mul_div;
+    use jediswap_v2_core::libraries::math_utils::pow;
 
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -427,8 +428,7 @@ mod JediSwapV2NFTPositionManager {
             position
                 .tokens_owed_0 +=
                     mul_div(
-                        position_info.fee_growth_inside_0_last_X128
-                            - position.fee_growth_inside_0_last_X128,
+                        mod_subtraction(position_info.fee_growth_inside_0_last_X128, position.fee_growth_inside_0_last_X128),
                         position.liquidity.into(),
                         Q128
                     )
@@ -438,8 +438,7 @@ mod JediSwapV2NFTPositionManager {
             position
                 .tokens_owed_1 +=
                     mul_div(
-                        position_info.fee_growth_inside_1_last_X128
-                            - position.fee_growth_inside_1_last_X128,
+                        mod_subtraction(position_info.fee_growth_inside_1_last_X128, position.fee_growth_inside_1_last_X128),
                         position.liquidity.into(),
                         Q128
                     )

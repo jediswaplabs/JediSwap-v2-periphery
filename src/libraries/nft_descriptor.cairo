@@ -4,7 +4,7 @@ mod NFTDescriptor {
         IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait
     };
     use jediswap_v2_periphery::jediswap_v2_nft_position_manager::PoolKey;
-    use yas_core::utils::math_utils::{pow};
+    use jediswap_v2_core::libraries::math_utils::pow;
 
 
     // @notice Appends the string representation of a number to an array

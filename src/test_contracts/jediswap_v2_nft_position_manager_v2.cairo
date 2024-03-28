@@ -2,7 +2,7 @@
 // @notice Wraps JediSwap V2 positions in the ERC721 non-fungible token interface
 
 use starknet::{ContractAddress, ClassHash};
-use yas_core::numbers::signed_integer::{i32::i32};
+use jediswap_v2_core::libraries::signed_integers::{i32::i32};
 use jediswap_v2_periphery::jediswap_v2_nft_position_manager::PoolKey;
 
 // @notice details about the JediSwap V2 position
@@ -163,9 +163,9 @@ mod JediSwapV2NFTPositionManagerV2 {
         IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait
     };
 
-    use yas_core::numbers::signed_integer::{i32::i32, integer_trait::IntegerTrait};
-    use yas_core::utils::math_utils::FullMath::mul_div;
-    use yas_core::utils::math_utils::{pow};
+    use jediswap_v2_core::libraries::signed_integers::{i32::i32, integer_trait::IntegerTrait};
+    use jediswap_v2_core::libraries::full_math::mul_div;
+    use jediswap_v2_core::libraries::math_utils::pow;
 
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
     use openzeppelin::introspection::src5::SRC5Component;

@@ -2,7 +2,7 @@
 // @notice Router for stateless execution of swaps against JediSwap V2
 
 use starknet::ContractAddress;
-use yas_core::numbers::signed_integer::{i256::i256};
+use jediswap_v2_core::libraries::signed_integers::{i256::i256};
 
 #[derive(Copy, Drop, Serde)]
 struct ExactInputSingleParams {
@@ -100,8 +100,8 @@ mod JediSwapV2SwapRouter {
         IJediSwapV2FactoryDispatcher, IJediSwapV2FactoryDispatcherTrait
     };
 
-    use yas_core::numbers::signed_integer::{i256::i256, integer_trait::IntegerTrait};
-    use yas_core::utils::math_utils::FullMath::mul_div;
+    use jediswap_v2_core::libraries::signed_integers::{i256::i256, integer_trait::IntegerTrait};
+    use jediswap_v2_core::libraries::full_math::mul_div;
 
     #[storage]
     struct Storage {
