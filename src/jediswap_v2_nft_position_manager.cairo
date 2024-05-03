@@ -100,6 +100,49 @@ struct MintCallbackData {
     payer: ContractAddress
 }
 
+#[starknet::interface]
+trait IERC20MetadataOld<TContractState> {   // TODO replace when possible
+    fn name(self: @TContractState) -> felt252;
+    fn symbol(self: @TContractState) -> felt252;
+}
+
+#[starknet::interface]
+trait IERC721<TContractState> {
+    fn balance_of(self: @TContractState, account: ContractAddress) -> u256;
+    fn owner_of(self: @TContractState, token_id: u256) -> ContractAddress;
+    fn safe_transfer_from(
+        ref self: TContractState,
+        from: ContractAddress,
+        to: ContractAddress,
+        token_id: u256,
+        data: Span<felt252>
+    );
+    fn transfer_from(ref self: TContractState, from: ContractAddress, to: ContractAddress, token_id: u256);
+    fn approve(ref self: TContractState, to: ContractAddress, token_id: u256);
+    fn set_approval_for_all(ref self: TContractState, operator: ContractAddress, approved: bool);
+    fn get_approved(self: @TContractState, token_id: u256) -> ContractAddress;
+    fn is_approved_for_all(
+        self: @TContractState, owner: ContractAddress, operator: ContractAddress
+    ) -> bool;
+}
+
+#[starknet::interface]
+trait IERC721CamelOnly<TContractState> {
+    fn balanceOf(self: @TContractState, account: ContractAddress) -> u256;
+    fn ownerOf(self: @TContractState, tokenId: u256) -> ContractAddress;
+    fn safeTransferFrom(
+        ref self: TContractState,
+        from: ContractAddress,
+        to: ContractAddress,
+        tokenId: u256,
+        data: Span<felt252>
+    );
+    fn transferFrom(ref self: TContractState, from: ContractAddress, to: ContractAddress, tokenId: u256);
+    fn setApprovalForAll(ref self: TContractState, operator: ContractAddress, approved: bool);
+    fn getApproved(self: @TContractState, tokenId: u256) -> ContractAddress;
+    fn isApprovedForAll(self: @TContractState, owner: ContractAddress, operator: ContractAddress) -> bool;
+}
+
 
 #[starknet::interface]
 trait IERC721Metadata<TContractState> {
@@ -111,6 +154,11 @@ trait IERC721Metadata<TContractState> {
 #[starknet::interface]
 trait IERC721CamelMetadata<TContractState> {
     fn tokenURI(self: @TContractState, token_id: u256) -> ByteArray;
+}
+
+#[starknet::interface]
+trait IERC721Enumberable<TContractState> {
+    fn get_all_tokens_for_owner(self: @TContractState, owner: ContractAddress) -> Array<u256>;
 }
 
 #[starknet::interface]
@@ -146,7 +194,7 @@ trait IJediSwapV2NFTPositionManager<TContractState> {
 mod JediSwapV2NFTPositionManager {
     use super::{
         PoolKey, PositionDetail, MintParams, AddLiquidityParams, IncreaseLiquidityParams,
-        DecreaseLiquidityParams, CollectParams, MintCallbackData
+        DecreaseLiquidityParams, CollectParams, MintCallbackData, IERC20MetadataOldDispatcher, IERC20MetadataOldDispatcherTrait
     };
     use starknet::{
         ContractAddress, ClassHash, get_contract_address, contract_address_const,
@@ -164,7 +212,7 @@ mod JediSwapV2NFTPositionManager {
     use jediswap_v2_core::libraries::math_utils::mod_subtraction;
     use jediswap_v2_periphery::libraries::liquidity_amounts::LiquidityAmounts::get_liquidity_for_amounts;
     use jediswap_v2_periphery::libraries::callback_validation::CallbackValidation::verify_callback_pool_key;
-    use jediswap_v2_periphery::libraries::nft_descriptor::NFTDescriptor::fee_to_string;
+    use jediswap_v2_periphery::libraries::nft_descriptor::NFTDescriptor::get_token_uri;
     use jediswap_v2_periphery::libraries::periphery_payments::PeripheryPayments::pay;
 
     use jediswap_v2_core::jediswap_v2_pool::{
@@ -185,10 +233,7 @@ mod JediSwapV2NFTPositionManager {
     component!(path: SRC5Component, storage: src5_storage, event: SRC5Event);
     component!(path: UpgradeableComponent, storage: upgradeable_storage, event: UpgradeableEvent);
 
-    #[abi(embed_v0)]
-    impl ERC721Impl = ERC721Component::ERC721Impl<ContractState>;
-    #[abi(embed_v0)]
-    impl ERC721CamelOnlyImpl = ERC721Component::ERC721CamelOnlyImpl<ContractState>;
+
     #[abi(embed_v0)]
     impl SRC5Impl = SRC5Component::SRC5Impl<ContractState>;
     #[abi(embed_v0)]
@@ -265,7 +310,10 @@ mod JediSwapV2NFTPositionManager {
         #[substorage(v0)]
         src5_storage: SRC5Component::Storage,
         #[substorage(v0)]
-        upgradeable_storage: UpgradeableComponent::Storage
+        upgradeable_storage: UpgradeableComponent::Storage,
+        // for enumerable
+        ERC721_owner_index_to_token: LegacyMap::<(ContractAddress, u256), u256>,
+        ERC721_owner_token_to_index: LegacyMap::<u256, u256>,
     }
 
     #[constructor]
@@ -275,6 +323,123 @@ mod JediSwapV2NFTPositionManager {
         self.factory.write(factory);
         self.next_id.write(1);
         self.next_pool_id.write(1);
+    }
+
+    #[abi(embed_v0)]
+    impl ERC721Impl of super::IERC721<ContractState> {
+        
+        fn balance_of(self: @ContractState, account: ContractAddress) -> u256 {
+            assert(!account.is_zero(), 'ERC721: invalid account');
+            self.erc721_storage.ERC721_balances.read(account)
+        }
+
+        fn owner_of(self: @ContractState, token_id: u256) -> ContractAddress {
+            self.erc721_storage._owner_of(token_id)
+        }
+
+        fn safe_transfer_from(
+            ref self: ContractState,
+            from: ContractAddress,
+            to: ContractAddress,
+            token_id: u256,
+            data: Span<felt252>
+        ) {
+            assert(
+                self.erc721_storage._is_approved_or_owner(get_caller_address(), token_id), 'ERC721: unauthorized caller'
+            );
+            self._remove_token_from_owner_enum(from, token_id);
+            self._add_token_to_owner_enum(to, token_id);
+            self.erc721_storage._safe_transfer(from, to, token_id, data);
+        }
+
+        fn transfer_from(
+            ref self: ContractState,
+            from: ContractAddress,
+            to: ContractAddress,
+            token_id: u256
+        ) {
+            assert(
+                self.erc721_storage._is_approved_or_owner(get_caller_address(), token_id), 'ERC721: unauthorized caller'
+            );
+            self._remove_token_from_owner_enum(from, token_id);
+            self._add_token_to_owner_enum(to, token_id);
+            self.erc721_storage._transfer(from, to, token_id);
+        }
+
+        fn approve(ref self: ContractState, to: ContractAddress, token_id: u256) {
+            let owner = self.erc721_storage._owner_of(token_id);
+
+            let caller = get_caller_address();
+            assert(
+                owner == caller || self.is_approved_for_all(owner, caller),
+                'ERC721: unauthorized caller'
+            );
+            self.erc721_storage._approve(to, token_id);
+        }
+
+        fn set_approval_for_all(
+            ref self: ContractState, operator: ContractAddress, approved: bool
+        ) {
+            self.erc721_storage._set_approval_for_all(get_caller_address(), operator, approved)
+        }
+
+        fn get_approved(self: @ContractState, token_id: u256) -> ContractAddress {
+            assert(self.erc721_storage._exists(token_id), 'ERC721: invalid token ID');
+            self.erc721_storage.ERC721_token_approvals.read(token_id)
+        }
+
+        fn is_approved_for_all(
+            self: @ContractState, owner: ContractAddress, operator: ContractAddress
+        ) -> bool {
+            self.erc721_storage.ERC721_operator_approvals.read((owner, operator))
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl ERC721CamelOnlyImpl of super::IERC721CamelOnly<ContractState> {
+        
+        fn balanceOf(self: @ContractState, account: ContractAddress) -> u256 {
+            self.balance_of(account)
+        }
+
+        fn ownerOf(self: @ContractState, tokenId: u256) -> ContractAddress {
+            self.owner_of(tokenId)
+        }
+
+        fn safeTransferFrom(
+            ref self: ContractState,
+            from: ContractAddress,
+            to: ContractAddress,
+            tokenId: u256,
+            data: Span<felt252>
+        ) {
+            self.safe_transfer_from(from, to, tokenId, data)
+        }
+
+        fn transferFrom(
+            ref self: ContractState,
+            from: ContractAddress,
+            to: ContractAddress,
+            tokenId: u256
+        ) {
+            self.transfer_from(from, to, tokenId)
+        }
+
+        fn setApprovalForAll(
+            ref self: ContractState, operator: ContractAddress, approved: bool
+        ) {
+            self.set_approval_for_all(operator, approved)
+        }
+
+        fn getApproved(self: @ContractState, tokenId: u256) -> ContractAddress {
+            self.get_approved(tokenId)
+        }
+
+        fn isApprovedForAll(
+            self: @ContractState, owner: ContractAddress, operator: ContractAddress
+        ) -> bool {
+            self.is_approved_for_all(owner, operator)
+        }
     }
 
     #[abi(embed_v0)]
@@ -297,6 +462,23 @@ mod JediSwapV2NFTPositionManager {
     impl ERC721CamelMetadataImpl of super::IERC721CamelMetadata<ContractState> {
         fn tokenURI(self: @ContractState, token_id: u256) -> ByteArray {
             self.token_uri(token_id)
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl ERC721EnumberableImpl of super::IERC721Enumberable<ContractState> {
+        fn get_all_tokens_for_owner(self: @ContractState, owner: ContractAddress) -> Array<u256> {
+            let mut index = 0;
+            let owner_balance = self.balance_of(owner);
+            let mut token_array = array![];
+            loop {
+                if(index == owner_balance) {
+                    break;
+                }
+                token_array.append(self.ERC721_owner_index_to_token.read((owner, index)));
+                index += 1;
+            };
+            token_array
         }
     }
 
@@ -347,6 +529,7 @@ mod JediSwapV2NFTPositionManager {
 
             let token_id = self.next_id.read();
             self.next_id.write(token_id + 1);
+            self._add_token_to_owner_enum(params.recipient, token_id);
             self.erc721_storage._mint(params.recipient, token_id);
 
             let position_info = pool_dispatcher
@@ -810,88 +993,42 @@ mod JediSwapV2NFTPositionManager {
         }
 
         fn _token_uri(self: @ContractState, token_id: u256) -> ByteArray {
-            let mut content: ByteArray = "";
             let (_, pool_key) = self.get_position(token_id);
 
-            let token_0_dispatcher = IERC20MetadataDispatcher { contract_address: pool_key.token0 };
-            let token_1_dispatcher = IERC20MetadataDispatcher { contract_address: pool_key.token1 };
+            let token_0_dispatcher = IERC20MetadataOldDispatcher { contract_address: pool_key.token0 };
+            let token_1_dispatcher = IERC20MetadataOldDispatcher { contract_address: pool_key.token1 };
 
-            // Name & Description
-            content.append_word('data:application/json;utf8,', 27);
-            content.append_word('{"name":"JediSwap V2 Position",', 28);
-            content.append_word('"description":"This NFT ', 24);
-            content.append_word('represents liquidity position ', 30);
-            content.append_word('in a JediSwap V2 ', 17);
-            content.append(@token_0_dispatcher.symbol());
-            content.append_word('-', 1);
-            content.append(@token_1_dispatcher.symbol());
-            content.append_word(' ', 1);
-            // fee_to_string(ref content, pool_key.fee.into());
-            content.append_word('% ', 2);
-            content.append_word(' pool. The owner of this NFT ', 29);
-            content.append_word('can modify or redeem the ', 25);
-            content.append_word('position."', 10);
-            // // Image
-            content.append_word(',"image":"', 10);
-            content.append_word('https://static.jediswap.', 23);
-            content.append_word('xyz/V2NFT.png"}', 15);
-            // content.append('position. Deposit Amounts: ');
-            // content.append('~0 ETH & ~0.000002 USDC"');
+            get_token_uri(token_0_dispatcher.symbol(), token_1_dispatcher.symbol(), pool_key.fee)
+        }
 
-            // // Image
-            // content.append(',"image":"');
-            // content.append('data:image/svg+xml;utf8,<svg%20');
-            // content.append('width=\\"100%\\"%20height=\\"100%\\');
-            // content.append('"%20viewBox=\\"0%200%2020000%202');
-            // content.append('0000\\"%20xmlns=\\"http://www.w3.');
-            // content.append('org/2000/svg\\"><style>svg{backg');
-            // content.append('round-image:url(');
-            // content.append('data:image/png;base64,');
+        // @dev adds for enumerator
+        fn _add_token_to_owner_enum(
+            ref self: ContractState, owner: ContractAddress, token_id: u256
+        ) {
+            let len = self.balance_of(owner);
+            // set token_id to owners last index
+            self.ERC721_owner_index_to_token.write((owner, len), token_id);
+            // set index to owners token_id
+            self.ERC721_owner_token_to_index.write(token_id, len);
+        }
 
-            // // Golden Token Base64 Encoded PNG
-            // content.append('iVBORw0KGgoAAAANSUhEUgAAAUAAAAF');
-            // content.append('ABAMAAAA/vriZAAAAD1BMVEUAAAD4+A');
-            // content.append('CJSQL/pAD///806TM9AAACgUlEQVR4A');
-            // content.append('WKgGAjiBUqoANDOHdzGDcRQAK3BLaSF');
-            // content.append('tJD+awriQwh8zDd2srlQfjxJGGr4xhf');
-            // content.append('Csuj3ywEC7gcCAgKeCD9bVC8gICAg4H');
-            // content.append('cDVtGvP/G5MKIXvKF8MhAQEBAQMFifo');
-            // content.append('rmK+Iho8uh8zwMCAgICAk65aouaEVM9');
-            // content.append('WL3zAQICAgJuBqYtth7brEZHC2CcMI6');
-            // content.append('Z1FQCAgICAm4GTnZsGL8WRaW4inPVV3');
-            // content.append('eAgICAgI8CVls0uIr+WnnR7wABAQEBF');
-            // content.append('wAvbBn3ytrvuhIQEBAQcCvwa8IbygCm');
-            // content.append('DRAQEBBwK7DbTt8A/OdWl7ZUAgICAgL');
-            // content.append('uAp5slXD1+i2BzQYICAgIuBsYtigyf8');
-            // content.append('2Z+GjRkhMYNQABAQEBdwFfsVXgRLd1Y');
-            // content.append('Dl/yAEBAQEB9wDrO7OoOQtRvdpeGKec');
-            // content.append('AAQEBATcCsxWd7qNwh1YItG15EYgICA');
-            // content.append('gIOAopyudHp6FuApgTRlgKbkTCAgICA');
-            // content.append('g4jhAl8NCz/u31W2+na4GAgICAgHFVh');
-            // content.append('+ZPtkmJvEiuNeYMa4CAgICAgPlxWSxP');
-            // content.append('nERhS0zE4XDR78rAyw4gICAgIGASYte');
-            // content.append('UN1soJyV+CGOL7QEBAQEBnwTs20yl+t');
-            // content.append('VZvFGLhTpUsxAICAgICJjKfORvvD06O');
-            // content.append('cAL2zogICAgIODJFg+fvknL25vR+7nd');
-            // content.append('CQQEBAQELMrYIeQ/XoxJvrItBAICAgI');
-            // content.append('CpvK0w2l8pUak3Nn2AwEBAQEB6z+sj/');
-            // content.append('1jin/yTlsFdT8QEBAQELAro1PF/lEpI');
-            // content.append('lJGHgthAwQEBATcD8wI5dxOzRr1C7PO');
-            // content.append('AgQEBAR8GjA7X1SqyjqxP0/cAJYDAQE');
-            // content.append('BAQGDGt46cJ/JyQIEBAQEfD7w0nsl2g');
-            // content.append('8EBAQEBPwNOZbOIEJQph0AAAAASUVOR');
-            // content.append('K5CYII=');
+        // @dev removes for enumerator
+        fn _remove_token_from_owner_enum(
+            ref self: ContractState, owner: ContractAddress, token_id: u256
+        ) {
+            // index starts from zero therefore minus 1
+            let last_token_index = self.balance_of(owner) - 1.into();
+            let removed_token_index = self.ERC721_owner_token_to_index.read(token_id);
 
-            // content.append(');background-repeat:no-repeat;b');
-            // content.append('ackground-size:contain;backgrou');
-            // content.append('nd-position:center;image-render');
-            // content.append('ing:-webkit-optimize-contrast;-');
-            // content.append('ms-interpolation-mode:nearest-n');
-            // content.append('eighbor;image-rendering:-moz-cr');
-            // content.append('isp-edges;image-rendering:pixel');
-            // content.append('ated;}</style></svg>"}');
-
-            content
+            if (last_token_index != removed_token_index) {
+                // set last token id to removed token index
+                let last_token_id = self.ERC721_owner_index_to_token.read((owner, last_token_index));
+                self.ERC721_owner_index_to_token.write((owner, removed_token_index), last_token_id);
+                // set removed token index to last token_id
+                self.ERC721_owner_token_to_index.write(last_token_id, removed_token_index);
+            }
+            // set token at owners last index to zero
+            self.ERC721_owner_index_to_token.write((owner, last_token_index), 0);
         }
     }
 

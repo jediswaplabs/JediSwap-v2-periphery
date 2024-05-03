@@ -9,8 +9,9 @@ casm = true
 [[target.starknet-contract]]
 sierra = true
 casm = true
+build-external-contracts = ["jediswap_v2_periphery::jediswap_v2_nft_position_manager::JediSwapV2NFTPositionManager", "jediswap_v2_periphery::jediswap_v2_swap_router::JediSwapV2SwapRouter"]
 
 [dependencies]
-starknet = "2.4.3"
-sncast_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.16.0" }
+starknet = "2.6.3"
+sncast_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.20.1" }
 jediswap_v2_periphery = { path = "../" }
