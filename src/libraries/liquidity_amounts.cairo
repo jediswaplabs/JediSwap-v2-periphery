@@ -1,6 +1,6 @@
 mod LiquidityAmounts {
-    use yas_core::utils::math_utils::FullMath::mul_div;
-    use yas_core::utils::math_utils::BitShift::BitShiftTrait;
+    use jediswap_v2_core::libraries::full_math::mul_div;
+    use jediswap_v2_core::libraries::bitshift_trait::BitShiftTrait;
     use jediswap_v2_core::libraries::sqrt_price_math::SqrtPriceMath::{Q96, R96};
 
     // @notice Computes the amount of liquidity received for a given amount of token0 and price range
@@ -104,7 +104,6 @@ mod LiquidityAmounts {
         } else {
             (sqrt_ratio_a_X96, sqrt_ratio_b_X96)
         };
-        let liquidity_u256: u256 = liquidity.into();
         mul_div(liquidity.into(), sqrt_ratio_b_X96 - sqrt_ratio_a_X96, Q96)
     }
 

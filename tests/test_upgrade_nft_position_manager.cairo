@@ -1,7 +1,7 @@
 use starknet::{ContractAddress, contract_address_try_from_felt252};
 use integer::BoundedInt;
-use yas_core::numbers::signed_integer::{i32::i32, i128::i128, integer_trait::IntegerTrait};
-use yas_core::utils::math_utils::{pow};
+use jediswap_v2_core::libraries::signed_integers::{i32::i32, i128::i128, integer_trait::IntegerTrait};
+use jediswap_v2_core::libraries::math_utils::pow;
 use openzeppelin::token::erc20::{
     ERC20Component, interface::{IERC20Dispatcher, IERC20DispatcherTrait}
 };
@@ -24,7 +24,7 @@ use jediswap_v2_periphery::test_contracts::jediswap_v2_nft_position_manager_v2::
     IJediSwapV2NFTPositionManagerV2Dispatcher, IJediSwapV2NFTPositionManagerV2DispatcherTrait,
 };
 use snforge_std::{
-    PrintTrait, declare, ContractClassTrait, start_prank, stop_prank, CheatTarget, spy_events,
+    declare, ContractClassTrait, start_prank, stop_prank, CheatTarget, spy_events,
     SpyOn, EventSpy, EventFetcher, Event, EventAssertions
 };
 
@@ -34,9 +34,9 @@ use super::utils::{owner, user1, user2, token0_1};
 
 fn setup_factory() -> (ContractAddress, ContractAddress) {
     let owner = owner();
-    let pool_class = declare('JediSwapV2Pool');
+    let pool_class = declare("JediSwapV2Pool");
 
-    let factory_class = declare('JediSwapV2Factory');
+    let factory_class = declare("JediSwapV2Factory");
     let mut factory_constructor_calldata = Default::default();
     Serde::serialize(@owner, ref factory_constructor_calldata);
     Serde::serialize(@pool_class.class_hash, ref factory_constructor_calldata);
@@ -47,7 +47,7 @@ fn setup_factory() -> (ContractAddress, ContractAddress) {
 fn setup_nft_position_manager(
     factory_address: ContractAddress
 ) -> IJediSwapV2NFTPositionManagerDispatcher {
-    let nft_class = declare('JediSwapV2NFTPositionManager');
+    let nft_class = declare("JediSwapV2NFTPositionManager");
 
     let mut nft_constructor_calldata = ArrayTrait::<felt252>::new();
     nft_constructor_calldata.append(factory_address.into());
@@ -62,11 +62,11 @@ fn setup_nft_position_manager(
 #[test]
 #[should_panic(expected: ('Invalid caller',))]
 fn test_upgrade_fails_with_wrong_caller() {
-    let (owner, factory_address) = setup_factory();
+    let (_, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
-    let new_nft_class_hash = declare('JediSwapV2NFTPositionManagerV2').class_hash;
+    let new_nft_class_hash = declare("JediSwapV2NFTPositionManagerV2").class_hash;
 
     nft_dispatcher.upgrade(new_nft_class_hash);
 }
@@ -79,7 +79,7 @@ fn test_upgrade_succeeds_with_owner_emits_event() {
 
     let nft_address = nft_dispatcher.contract_address;
 
-    let new_nft_class_hash = declare('JediSwapV2NFTPositionManagerV2').class_hash;
+    let new_nft_class_hash = declare("JediSwapV2NFTPositionManagerV2").class_hash;
 
     let mut spy = spy_events(SpyOn::One(nft_address));
 
@@ -121,7 +121,7 @@ fn test_upgrade_succeeds_old_selector_fails() {
     let nft_dispatcher = setup_nft_position_manager(factory_address);
     let nft_address = nft_dispatcher.contract_address;
 
-    let new_nft_class_hash = declare('JediSwapV2NFTPositionManagerV2').class_hash;
+    let new_nft_class_hash = declare("JediSwapV2NFTPositionManagerV2").class_hash;
 
     start_prank(CheatTarget::One(nft_address), owner);
     nft_dispatcher.upgrade(new_nft_class_hash);
@@ -137,7 +137,7 @@ fn test_upgrade_succeeds_new_selector() {
     let nft_dispatcher = setup_nft_position_manager(factory_address);
     let nft_address = nft_dispatcher.contract_address;
 
-    let new_nft_class_hash = declare('JediSwapV2NFTPositionManagerV2').class_hash;
+    let new_nft_class_hash = declare("JediSwapV2NFTPositionManagerV2").class_hash;
 
     start_prank(CheatTarget::One(nft_address), owner);
     nft_dispatcher.upgrade(new_nft_class_hash);
@@ -159,7 +159,7 @@ fn test_upgrade_succeeds_state_remains_same() {
 
     let factory_address = nft_dispatcher.get_factory();
 
-    let new_nft_class_hash = declare('JediSwapV2NFTPositionManagerV2').class_hash;
+    let new_nft_class_hash = declare("JediSwapV2NFTPositionManagerV2").class_hash;
 
     start_prank(CheatTarget::One(nft_address), owner);
     nft_dispatcher.upgrade(new_nft_class_hash);

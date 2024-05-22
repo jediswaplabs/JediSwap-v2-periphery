@@ -1,8 +1,7 @@
 use jediswap_v2_periphery::libraries::liquidity_amounts::LiquidityAmounts::{
     get_liquidity_for_amounts, get_amounts_for_liquidity
 };
-use yas_core::utils::math_utils::{pow};
-use snforge_std::PrintTrait;
+use jediswap_v2_core::libraries::math_utils::pow;
 
 
 // def encode_price_sqrt(a, b): 

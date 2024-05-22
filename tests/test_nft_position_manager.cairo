@@ -1,7 +1,7 @@
 use starknet::{ContractAddress, contract_address_try_from_felt252};
 use integer::BoundedInt;
-use yas_core::numbers::signed_integer::{i32::i32, i128::i128, integer_trait::IntegerTrait};
-use yas_core::utils::math_utils::{pow};
+use jediswap_v2_core::libraries::signed_integers::{i32::i32, i128::i128, integer_trait::IntegerTrait};
+use jediswap_v2_core::libraries::math_utils::pow;
 use openzeppelin::token::erc20::{
     ERC20Component, interface::{IERC20Dispatcher, IERC20DispatcherTrait}
 };
@@ -20,7 +20,7 @@ use jediswap_v2_periphery::jediswap_v2_nft_position_manager::{
     MintParams, PositionDetail, PoolKey
 };
 use snforge_std::{
-    PrintTrait, declare, ContractClassTrait, start_prank, stop_prank, CheatTarget, spy_events,
+    declare, ContractClassTrait, start_prank, stop_prank, CheatTarget, spy_events,
     SpyOn, EventSpy, EventFetcher, Event, EventAssertions
 };
 
@@ -30,9 +30,9 @@ use super::utils::{owner, user1, user2, token0_1};
 
 fn setup_factory() -> (ContractAddress, ContractAddress) {
     let owner = owner();
-    let pool_class = declare('JediSwapV2Pool');
+    let pool_class = declare("JediSwapV2Pool");
 
-    let factory_class = declare('JediSwapV2Factory');
+    let factory_class = declare("JediSwapV2Factory");
     let mut factory_constructor_calldata = Default::default();
     Serde::serialize(@owner, ref factory_constructor_calldata);
     Serde::serialize(@pool_class.class_hash, ref factory_constructor_calldata);
@@ -43,7 +43,7 @@ fn setup_factory() -> (ContractAddress, ContractAddress) {
 fn setup_nft_position_manager(
     factory_address: ContractAddress
 ) -> IJediSwapV2NFTPositionManagerDispatcher {
-    let nft_class = declare('JediSwapV2NFTPositionManager');
+    let nft_class = declare("JediSwapV2NFTPositionManager");
 
     let mut nft_constructor_calldata = ArrayTrait::<felt252>::new();
     nft_constructor_calldata.append(factory_address.into());
@@ -65,7 +65,7 @@ fn get_max_tick() -> i32 {
 
 #[test]
 fn test_create_and_initialize_pool_if_necessary_creates_pool_if_not_created() {
-    let (owner, factory_address) = setup_factory();
+    let (_, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
@@ -102,7 +102,7 @@ fn test_create_and_initialize_pool_if_necessary_creates_pool_if_not_created() {
 
 #[test]
 fn test_create_and_initialize_pool_works_if_pool_is_created_but_not_initialized() {
-    let (owner, factory_address) = setup_factory();
+    let (_, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
@@ -127,7 +127,7 @@ fn test_create_and_initialize_pool_works_if_pool_is_created_but_not_initialized(
 
 #[test]
 fn test_create_and_initialize_pool_works_if_pool_is_created_and_initialized() {
-    let (owner, factory_address) = setup_factory();
+    let (_, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
@@ -155,7 +155,7 @@ fn test_create_and_initialize_pool_works_if_pool_is_created_and_initialized() {
 #[test]
 #[should_panic(expected: ('pool not created',))]
 fn test_mint_fails_if_pool_does_not_exist() {
-    let (owner, factory_address) = setup_factory();
+    let (_, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
@@ -181,7 +181,7 @@ fn test_mint_fails_if_pool_does_not_exist() {
 #[test]
 #[should_panic(expected: ('u256_sub Overflow',))]
 fn test_mint_fails_if_can_not_transfer() {
-    let (owner, factory_address) = setup_factory();
+    let (_, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
@@ -210,7 +210,7 @@ fn test_mint_fails_if_can_not_transfer() {
 
 #[test]
 fn test_mint_creates_a_token() {
-    let (owner, factory_address) = setup_factory();
+    let (_, factory_address) = setup_factory();
 
     let nft_dispatcher = setup_nft_position_manager(factory_address);
 
