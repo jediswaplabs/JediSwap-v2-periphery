@@ -678,8 +678,7 @@ mod JediSwapV2NFTPositionManager {
                 .tokens_owed_0 +=
                     (amount0
                         + mul_div(
-                            position_info.fee_growth_inside_0_last_X128
-                                - position.fee_growth_inside_0_last_X128,
+                            mod_subtraction(position_info.fee_growth_inside_0_last_X128, position.fee_growth_inside_0_last_X128),
                             position.liquidity.into(),
                             Q128
                         ))
@@ -690,8 +689,7 @@ mod JediSwapV2NFTPositionManager {
                 .tokens_owed_1 +=
                     (amount1
                         + mul_div(
-                            position_info.fee_growth_inside_1_last_X128
-                                - position.fee_growth_inside_1_last_X128,
+                            mod_subtraction(position_info.fee_growth_inside_1_last_X128, position.fee_growth_inside_1_last_X128),
                             position.liquidity.into(),
                             Q128
                         ))
